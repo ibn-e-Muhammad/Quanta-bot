@@ -1,0 +1,38 @@
+# =============================================================================
+# QUANTA BOT — .gitignore
+# =============================================================================
+
+# ---- Secrets & Environment ----
+.env
+.env.*
+*.key
+*.pem
+
+# ---- Runtime Artifacts (SQLite DBs, JSON state, logs) ----
+Quanta-bot/runtime/
+runtime/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ---- Pytest ----
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+*.cover
+
+# ---- IDE / Editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
