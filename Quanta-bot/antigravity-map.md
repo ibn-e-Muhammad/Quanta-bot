@@ -98,4 +98,13 @@ _(No reverse shortcuts allowed.)_
 - Cross-market arbitrage
   _(Do not implement until Phase 1 base execution is validated.)_
 
+## 10. TECH STACK CONTRACT (STRICT ENFORCEMENT)
+No agent is permitted to deviate from this exact technology stack to prevent dependency bloat and ensure deterministic execution.
+
+* **Language:** Python 3.11+ (Strict type hinting required for all functions).
+* **Math & Indicators:** `numpy` ONLY. (FORBIDDEN: `pandas`, `ta-lib`, `pandas-ta`).
+* **Network & API:** `requests` for REST calls; standard `websockets` for streaming. (FORBIDDEN: `python-binance`, `ccxt`, or any third-party exchange wrappers).
+* **Database:** `sqlite3` built-in standard library ONLY. (FORBIDDEN: `SQLAlchemy`, `Django ORM`).
+* **Testing:** `pytest` (Must mock all external network calls).
+
 > **FINAL PRINCIPLE:** A profitable system is not the one that wins the most trades. It is the one that survives the longest.
