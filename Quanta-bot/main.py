@@ -157,9 +157,9 @@ def main():
             logger.info("[PHASE B] Running Strategy Engine...")
             signal = run_strategy_engine()
             if signal.get("signal", "HOLD") == "HOLD":
-                logger.info("[PHASE B] HOLD signal received. Cycle complete.")
+                logger.info(f"[PHASE B] HOLD signal received. Reason: {signal.get('reason', 'Unknown')}. Cycle complete.")
                 # Give CPU a breather
-                time.sleep(1)
+                time.sleep(10)
                 continue
             
             # --- PHASE C: EXECUTION (Room 3) ---
