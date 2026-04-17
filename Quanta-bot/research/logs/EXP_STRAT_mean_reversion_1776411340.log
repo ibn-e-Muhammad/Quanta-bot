@@ -1,0 +1,20 @@
+==================================================
+EXPERIMENT START
+ID: EXP_STRAT_mean_reversion_1776411340
+Dimension: STRATEGY_TYPE
+Variant: mean_reversion
+==================================================
+
+[BTCUSDT] Trades: 313 | WinRate: 27.5% | PF: 1.04 | Exp: 0.023%
+[ETHUSDT] Trades: 285 | WinRate: 21.8% | PF: 0.73 | Exp: -0.219%
+[XRPUSDT] Trades: 299 | WinRate: 23.4% | PF: 0.82 | Exp: -0.160%
+[SOLUSDT] Trades: 269 | WinRate: 24.2% | PF: 1.06 | Exp: 0.059%
+[DOGEUSDT] Trades: 264 | WinRate: 24.2% | PF: 0.81 | Exp: -0.182%
+[ZECUSDT] Trades: 273 | WinRate: 25.6% | PF: 1.01 | Exp: 0.006%
+[TAOUSDT] Trades: 102 | WinRate: 22.5% | PF: 0.92 | Exp: -0.102%
+[SUIUSDT] Trades: 160 | WinRate: 25.0% | PF: 1.03 | Exp: 0.029%
+[XAUUSDT] Trades: 15 | WinRate: 20.0% | PF: 0.36 | Exp: -0.252%
+[XAGUSDT] Trades: 17 | WinRate: 47.1% | PF: 1.94 | Exp: 0.708%
+[LINKUSDT] Trades: 291 | WinRate: 22.7% | PF: 0.78 | Exp: -0.247%
+[LTCUSDT] Trades: 294 | WinRate: 25.9% | PF: 0.99 | Exp: -0.005%
+[BNBUSDT] Trades: 311 | WinRate: 18.6% | PF: 0.63 | Exp: -0.279%

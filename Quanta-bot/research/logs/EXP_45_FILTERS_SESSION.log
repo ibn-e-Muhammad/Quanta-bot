@@ -1,0 +1,15 @@
+=== EXP_45_FILTERS_SESSION ===
+
+[BTCUSDT] Filter Report: {'session_filter_removed': 2840, 'total_removed_pct': 53.595017927910924}
+[ETHUSDT] Filter Report: {'session_filter_removed': 2994, 'total_removed_pct': 55.35219079312257}
+[XRPUSDT] Filter Report: {'session_filter_removed': 3073, 'total_removed_pct': 56.83373404845571}
+[SOLUSDT] Filter Report: {'session_filter_removed': 3133, 'total_removed_pct': 56.870575422036666}
+[DOGEUSDT] Filter Report: {'session_filter_removed': 3178, 'total_removed_pct': 57.137720244516366}
+[ZECUSDT] Filter Report: {'session_filter_removed': 3025, 'total_removed_pct': 58.646762310973244}
+[TAOUSDT] Filter Report: {'session_filter_removed': 1182, 'total_removed_pct': 56.3393708293613}
+[SUIUSDT] Filter Report: {'session_filter_removed': 1784, 'total_removed_pct': 58.03513337670787}
+[XAUUSDT] Filter Report: {'session_filter_removed': 209, 'total_removed_pct': 57.89473684210527}
+[XAGUSDT] Filter Report: {'session_filter_removed': 165, 'total_removed_pct': 55.369127516778526}
+[LINKUSDT] Filter Report: {'session_filter_removed': 3017, 'total_removed_pct': 56.45583832335329}
+[LTCUSDT] Filter Report: {'session_filter_removed': 2915, 'total_removed_pct': 56.393886631843685}
+[BNBUSDT] Filter Report: {'session_filter_removed': 3132, 'total_removed_pct': 58.30230826507818}

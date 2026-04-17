@@ -1,0 +1,15 @@
+=== EXP_45_FILTERS_VOL ===
+
+[BTCUSDT] Filter Report: {'volatility_filter_removed': 1317, 'total_removed_pct': 24.853745989809397}
+[ETHUSDT] Filter Report: {'volatility_filter_removed': 1325, 'total_removed_pct': 24.496210020336477}
+[XRPUSDT] Filter Report: {'volatility_filter_removed': 1384, 'total_removed_pct': 25.596449047530978}
+[SOLUSDT] Filter Report: {'volatility_filter_removed': 1438, 'total_removed_pct': 26.102740969322923}
+[DOGEUSDT] Filter Report: {'volatility_filter_removed': 1427, 'total_removed_pct': 25.656238763034878}
+[ZECUSDT] Filter Report: {'volatility_filter_removed': 1332, 'total_removed_pct': 25.82396277626987}
+[TAOUSDT] Filter Report: {'volatility_filter_removed': 541, 'total_removed_pct': 25.78646329837941}
+[SUIUSDT] Filter Report: {'volatility_filter_removed': 795, 'total_removed_pct': 25.862068965517242}
+[XAUUSDT] Filter Report: {'volatility_filter_removed': 105, 'total_removed_pct': 29.085872576177284}
+[XAGUSDT] Filter Report: {'volatility_filter_removed': 92, 'total_removed_pct': 30.87248322147651}
+[LINKUSDT] Filter Report: {'volatility_filter_removed': 1360, 'total_removed_pct': 25.449101796407188}
+[LTCUSDT] Filter Report: {'volatility_filter_removed': 1331, 'total_removed_pct': 25.74966144321919}
+[BNBUSDT] Filter Report: {'volatility_filter_removed': 1451, 'total_removed_pct': 27.01042442293373}

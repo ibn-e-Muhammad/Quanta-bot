@@ -1,0 +1,20 @@
+==================================================
+EXPERIMENT START
+ID: EXP_EXIT_fixed_3R_1776411340
+Dimension: EXIT_PROFILE
+Variant: fixed_3R
+==================================================
+
+[BTCUSDT] Trades: 893 | WinRate: 25.0% | PF: 1.00 | Exp: 0.002%
+[ETHUSDT] Trades: 724 | WinRate: 27.6% | PF: 1.07 | Exp: 0.037%
+[XRPUSDT] Trades: 806 | WinRate: 28.2% | PF: 1.11 | Exp: 0.067%
+[SOLUSDT] Trades: 528 | WinRate: 27.1% | PF: 1.13 | Exp: 0.105%
+[DOGEUSDT] Trades: 687 | WinRate: 29.0% | PF: 1.29 | Exp: 0.197%
+[ZECUSDT] Trades: 564 | WinRate: 25.5% | PF: 1.06 | Exp: 0.055%
+[TAOUSDT] Trades: 167 | WinRate: 29.3% | PF: 1.19 | Exp: 0.204%
+[SUIUSDT] Trades: 284 | WinRate: 27.1% | PF: 1.06 | Exp: 0.059%
+[XAUUSDT] Trades: 81 | WinRate: 17.3% | PF: 0.60 | Exp: -0.096%
+[XAGUSDT] Trades: 34 | WinRate: 55.9% | PF: 2.96 | Exp: 0.753%
+[LINKUSDT] Trades: 567 | WinRate: 28.0% | PF: 1.20 | Exp: 0.157%
+[LTCUSDT] Trades: 693 | WinRate: 27.0% | PF: 1.11 | Exp: 0.076%
+[BNBUSDT] Trades: 783 | WinRate: 23.4% | PF: 0.87 | Exp: -0.074%

@@ -1,0 +1,28 @@
+=== EXP_45_COMBINED_ALL ===
+
+[BTCUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[BTCUSDT] Filter Report: {'session_filter_removed': 2840, 'volatility_filter_removed': 637, 'range_filter_removed': 123, 'fake_breakout_removed': 140, 'total_removed_pct': 70.57935459520664}
+[ETHUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[ETHUSDT] Filter Report: {'session_filter_removed': 2994, 'volatility_filter_removed': 596, 'range_filter_removed': 96, 'fake_breakout_removed': 146, 'total_removed_pct': 70.84488814938067}
+[XRPUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[XRPUSDT] Filter Report: {'session_filter_removed': 3073, 'volatility_filter_removed': 605, 'range_filter_removed': 117, 'fake_breakout_removed': 141, 'total_removed_pct': 72.7945256149436}
+[SOLUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[SOLUSDT] Filter Report: {'session_filter_removed': 3133, 'volatility_filter_removed': 643, 'range_filter_removed': 108, 'fake_breakout_removed': 104, 'total_removed_pct': 72.39063350880379}
+[DOGEUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[DOGEUSDT] Filter Report: {'session_filter_removed': 3178, 'volatility_filter_removed': 616, 'range_filter_removed': 101, 'fake_breakout_removed': 157, 'total_removed_pct': 72.851492268968}
+[ZECUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[ZECUSDT] Filter Report: {'session_filter_removed': 3025, 'volatility_filter_removed': 504, 'range_filter_removed': 133, 'fake_breakout_removed': 88, 'total_removed_pct': 72.70259790616518}
+[TAOUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[TAOUSDT] Filter Report: {'session_filter_removed': 1182, 'volatility_filter_removed': 216, 'range_filter_removed': 65, 'fake_breakout_removed': 24, 'total_removed_pct': 70.87702573879886}
+[SUIUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[SUIUSDT] Filter Report: {'session_filter_removed': 1784, 'volatility_filter_removed': 314, 'range_filter_removed': 64, 'fake_breakout_removed': 53, 'total_removed_pct': 72.05595315549772}
+[XAUUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[XAUUSDT] Filter Report: {'session_filter_removed': 209, 'volatility_filter_removed': 39, 'range_filter_removed': 5, 'fake_breakout_removed': 12, 'total_removed_pct': 73.40720221606648}
+[XAGUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[XAGUSDT] Filter Report: {'session_filter_removed': 165, 'volatility_filter_removed': 38, 'range_filter_removed': 8, 'fake_breakout_removed': 5, 'total_removed_pct': 72.48322147651007}
+[LINKUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[LINKUSDT] Filter Report: {'session_filter_removed': 3017, 'volatility_filter_removed': 584, 'range_filter_removed': 139, 'fake_breakout_removed': 99, 'total_removed_pct': 71.8375748502994}
+[LTCUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[LTCUSDT] Filter Report: {'session_filter_removed': 2915, 'volatility_filter_removed': 571, 'range_filter_removed': 117, 'fake_breakout_removed': 103, 'total_removed_pct': 71.69665312439544}
+[BNBUSDT] [WARNING] Filter too aggressive - possible overfitting or edge destruction
+[BNBUSDT] Filter Report: {'session_filter_removed': 3132, 'volatility_filter_removed': 561, 'range_filter_removed': 115, 'fake_breakout_removed': 91, 'total_removed_pct': 72.58004467609828}

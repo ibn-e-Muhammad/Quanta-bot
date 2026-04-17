@@ -41,10 +41,6 @@ research/backtest_results_v3/
 *.sqlite
 *.csv
 
-# ---- Output Logs ----
-research/logs/
-*.log
-
 # ---- OS ----
 .DS_Store
 Thumbs.db

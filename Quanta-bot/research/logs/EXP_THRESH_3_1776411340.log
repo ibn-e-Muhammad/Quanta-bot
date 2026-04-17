@@ -1,0 +1,20 @@
+==================================================
+EXPERIMENT START
+ID: EXP_THRESH_3_1776411340
+Dimension: SIGNAL_THRESHOLD
+Variant: 3
+==================================================
+
+[BTCUSDT] Trades: 1014 | WinRate: 24.7% | PF: 0.97 | Exp: -0.012%
+[ETHUSDT] Trades: 883 | WinRate: 26.6% | PF: 1.04 | Exp: 0.024%
+[XRPUSDT] Trades: 976 | WinRate: 27.2% | PF: 1.04 | Exp: 0.026%
+[SOLUSDT] Trades: 715 | WinRate: 26.9% | PF: 1.10 | Exp: 0.084%
+[DOGEUSDT] Trades: 854 | WinRate: 27.5% | PF: 1.19 | Exp: 0.146%
+[ZECUSDT] Trades: 752 | WinRate: 25.5% | PF: 1.05 | Exp: 0.048%
+[TAOUSDT] Trades: 229 | WinRate: 28.8% | PF: 1.25 | Exp: 0.271%
+[SUIUSDT] Trades: 399 | WinRate: 27.3% | PF: 1.07 | Exp: 0.070%
+[XAUUSDT] Trades: 83 | WinRate: 16.9% | PF: 0.56 | Exp: -0.110%
+[XAGUSDT] Trades: 46 | WinRate: 45.7% | PF: 2.20 | Exp: 0.626%
+[LINKUSDT] Trades: 778 | WinRate: 26.1% | PF: 1.07 | Exp: 0.057%
+[LTCUSDT] Trades: 892 | WinRate: 26.2% | PF: 1.09 | Exp: 0.061%
+[BNBUSDT] Trades: 921 | WinRate: 24.1% | PF: 0.95 | Exp: -0.031%

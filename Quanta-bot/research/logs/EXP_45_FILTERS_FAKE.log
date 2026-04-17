@@ -1,0 +1,15 @@
+=== EXP_45_FILTERS_FAKE ===
+
+[BTCUSDT] Filter Report: {'fake_breakout_removed': 427, 'total_removed_pct': 8.058124174372523}
+[ETHUSDT] Filter Report: {'fake_breakout_removed': 423, 'total_removed_pct': 7.820299500831947}
+[XRPUSDT] Filter Report: {'fake_breakout_removed': 439, 'total_removed_pct': 8.1191048640651}
+[SOLUSDT] Filter Report: {'fake_breakout_removed': 357, 'total_removed_pct': 6.480304955527319}
+[DOGEUSDT] Filter Report: {'fake_breakout_removed': 428, 'total_removed_pct': 7.6950737144911905}
+[ZECUSDT] Filter Report: {'fake_breakout_removed': 305, 'total_removed_pct': 5.913144629701435}
+[TAOUSDT] Filter Report: {'fake_breakout_removed': 101, 'total_removed_pct': 4.814108674928503}
+[SUIUSDT] Filter Report: {'fake_breakout_removed': 180, 'total_removed_pct': 5.855562784645413}
+[XAUUSDT] Filter Report: {'fake_breakout_removed': 41, 'total_removed_pct': 11.357340720221606}
+[XAGUSDT] Filter Report: {'fake_breakout_removed': 24, 'total_removed_pct': 8.053691275167784}
+[LINKUSDT] Filter Report: {'fake_breakout_removed': 306, 'total_removed_pct': 5.726047904191617}
+[LTCUSDT] Filter Report: {'fake_breakout_removed': 323, 'total_removed_pct': 6.2487908686399685}
+[BNBUSDT] Filter Report: {'fake_breakout_removed': 305, 'total_removed_pct': 5.6775874906924795}
