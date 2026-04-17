@@ -32,12 +32,13 @@ htmlcov/
 *.swo
 *~
 
-# ---- Research Data & Results ----
+# ---- Research Data & Results (Whitelisted) ----
 research/historical_data/
 research/backtest_results*/
 research/edge_strength_results/
 research/backtest_results_v2/
 research/backtest_results_v3/
+research/portfolio_backtests/
 *.sqlite
 *.csv
 
