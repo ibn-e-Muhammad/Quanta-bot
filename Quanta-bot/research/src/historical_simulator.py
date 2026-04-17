@@ -14,14 +14,14 @@ from research.src.edge_compression_engine import apply_edge_compression
 from research.src.filters_engine import apply_filters
 from execution.src.risk_engine import RiskEngine
 
-# Phase 4.65 Injected Modules
+# Phase 4.80 Injected Modules
 from research.src.trade_quality_engine import evaluate_trade_quality
 from research.src.fee_filter import is_fee_viable
 from research.src.exit_optimizer import get_dynamic_exit_targets
 
 class HistoricalSimulator:
     """
-    Phase 4.70: Timeframe Transition Protocol (15m -> 1H)
+    Phase 4.80: Institutional Sizing & Exit Hardening Protocol
     """
     def __init__(self, config_path, data_dir, db_path, config_override=None):
         self.config_path = config_path # Store original path for RiskEngine
@@ -244,7 +244,7 @@ class HistoricalSimulator:
             if sig_val == 1: sl = entry_price - (atr * 2)
             else: sl = entry_price + (atr * 2)
                 
-            risk_per_trade = 0.03  
+            risk_per_trade = 0.015  # Phase 4.80: Institutional 1.5% Base
             notional = risk_engine.calculate_position_size(
                 balance=current_balance, 
                 risk_per_trade=risk_per_trade, 
@@ -252,6 +252,11 @@ class HistoricalSimulator:
                 stop_loss_price=sl, 
                 atr=atr
             )
+            
+            # Phase 4.80: Exact Institutional Leverage Capping Limits
+            max_allowable_notional = current_balance * 5.0
+            if notional > max_allowable_notional:
+                notional = max_allowable_notional
             
             if notional == 0: continue
             margin_required = notional / 10.0
@@ -284,28 +289,15 @@ class HistoricalSimulator:
             final_exit_price = entry_price
             tp1_hit = False
             
-            # Map Execution Simulation Tranches
+            # Map Execution Simulation Tranches strictly avoiding Adaptive Exits natively
             for j, f_row in enumerate(slice_window): # 0:o, 1:h, 2:l, 3:c, 4:ema_fast, 5:ema_slow, 6:ts
                 f_high = f_row[1]
                 f_low = f_row[2]
                 f_close = f_row[3]
-                f_ema_fast = f_row[4]
-                f_ema_slow = f_row[5]
                 f_ts = f_row[6]
                 
                 if sig_val == 1:
-                    if f_ema_fast < f_ema_slow:
-                        outcome = 3
-                        raw_pct = (f_close - entry_price) / entry_price
-                        gross_pnl += (raw_pct * remaining_notional)
-                        fees_paid += remaining_notional * 0.0005
-                        slippage_paid += remaining_notional * 0.0002
-                        remaining_notional = 0
-                        duration = (j + 1) * 60
-                        exit_timestamp = f_ts
-                        final_exit_price = f_close
-                        break
-                        
+                    # Trailing Structure logic cleanly protecting Capital Bounds
                     if f_low <= current_sl:
                         outcome = 0 if not tp1_hit else 1
                         raw_pct = (current_sl - entry_price) / entry_price
@@ -326,7 +318,7 @@ class HistoricalSimulator:
                         fees_paid += tranche * 0.0005
                         slippage_paid += tranche * 0.0002
                         remaining_notional -= tranche
-                        current_sl = entry_price # Move to absolute Breakeven
+                        current_sl = entry_price * 1.0015 # Phase 4.80: Fee-Adjusted Breakeven mathematically buffered
                         
                     if f_high >= tp2:
                         outcome = 2
@@ -340,19 +332,7 @@ class HistoricalSimulator:
                         final_exit_price = tp2
                         break
                 
-                else: 
-                    if f_ema_fast > f_ema_slow:
-                        outcome = 3
-                        raw_pct = (entry_price - f_close) / entry_price
-                        gross_pnl += (raw_pct * remaining_notional)
-                        fees_paid += remaining_notional * 0.0005
-                        slippage_paid += remaining_notional * 0.0002
-                        remaining_notional = 0
-                        duration = (j + 1) * 60
-                        exit_timestamp = f_ts
-                        final_exit_price = f_close
-                        break
-                        
+                else: # Short Logic
                     if f_high >= current_sl:
                         outcome = 0 if not tp1_hit else 1
                         raw_pct = (entry_price - current_sl) / entry_price
@@ -373,7 +353,7 @@ class HistoricalSimulator:
                         fees_paid += tranche * 0.0005
                         slippage_paid += tranche * 0.0002
                         remaining_notional -= tranche
-                        current_sl = entry_price
+                        current_sl = entry_price * 0.9985 # Phase 4.80: Fee-Adjusted Breakeven mathematically buffered
                         
                     if f_low <= tp2:
                         outcome = 2

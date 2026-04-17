@@ -57,7 +57,7 @@ def generate_ecg_report(db_path):
     status_verdict = "STATUS: PROP FIRM READY" if is_prop_firm_ready else "STATUS: REQUIRES PHASE 4.80 (Adaptive Risk / Exit Optimization)"
 
     print("\n=================================================")
-    print(" [REPORT] QUANTA BOT PHASE 4.75 : CONTROLLED AGGRESSION ")
+    print(" [REPORT] QUANTA BOT PHASE 4.80 : EXIT HARDENING & INSTITUTIONAL SIZING ")
     print("=================================================")
     print(f"Total Trades Taken   : {total_trades}")
     print(f"Win Rate             : {win_rate:.2f}% ({wins} W / {total_trades - wins} L)")
@@ -80,9 +80,8 @@ def generate_ecg_report(db_path):
         print("[WARNING] Under-trading - system still too restrictive")
     elif total_trades > 2000:
         print("[WARNING] Over-trading - possible noise reintroduction")
-        
-    print(f"\n[FINAL DECISION LOGIC]:\n{status_verdict}")
+    
     print("=================================================\n")
 
 if __name__ == "__main__":
-    generate_ecg_report("D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v6/portfolio_results.sqlite")
+    generate_ecg_report("D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v7/portfolio_results.sqlite")
