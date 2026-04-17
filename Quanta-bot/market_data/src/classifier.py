@@ -46,20 +46,20 @@ def classify_volatility(
 
 def classify_market_state(
     adx_value: float,
-    ema_20: float,
-    ema_50: float,
+    ema_fast: float,
+    ema_slow: float,
     volatility: str,
 ) -> str:
     """Classify market state as TRENDING_UP, TRENDING_DOWN, RANGING, or SIDEWAYS.
 
     Rules (from data-context.md Section 3, Step 4):
-        ADX >= 25 AND EMA_20 > EMA_50   → TRENDING_UP
-        ADX >= 25 AND EMA_20 < EMA_50   → TRENDING_DOWN
+        ADX >= 25 AND EMA_FAST > EMA_SLOW   → TRENDING_UP
+        ADX >= 25 AND EMA_FAST < EMA_SLOW   → TRENDING_DOWN
         ADX <  25 AND volatility != LOW  → RANGING
         Else                             → SIDEWAYS
     """
     if adx_value >= 25:
-        if ema_20 > ema_50:
+        if ema_fast > ema_slow:
             return "TRENDING_UP"
         else:
             return "TRENDING_DOWN"

@@ -1,120 +1,63 @@
-"""
-risk_engine.py — RR Validation, Position Sizing & Leverage Enforcement
+import json
+import logging
 
-Three public functions: validate_rr, compute_position_size, enforce_leverage.
-All pure functions — no side effects. Uses only arithmetic.
-"""
-
-from . import config
-
-
-def validate_rr(
-    entry: float, sl: float, tp: float, signal: str,
-) -> tuple[bool, float, str]:
-    """Validate risk/reward ratio for a trade.
-
-    Returns
-    -------
-    tuple[bool, float, str]
-        (valid, rr_ratio, reason).
+class RiskEngine:
     """
-    # SL/TP ordering check
-    if signal == "BUY":
-        if not (sl < entry < tp):
-            return (
-                False, 0.0,
-                f"BUY ordering violated: SL({sl}) < ENTRY({entry}) < TP({tp})",
-            )
-        risk_dist: float = entry - sl
-        reward_dist: float = tp - entry
-
-    elif signal == "SELL":
-        if not (tp < entry < sl):
-            return (
-                False, 0.0,
-                f"SELL ordering violated: TP({tp}) < ENTRY({entry}) < SL({sl})",
-            )
-        risk_dist = sl - entry
-        reward_dist = entry - tp
-
-    else:
-        return False, 0.0, f"Invalid signal type for RR validation: {signal}"
-
-    # Division by zero guard
-    if risk_dist == 0:
-        return False, 0.0, "SL distance is zero — cannot compute RR"
-
-    rr: float = reward_dist / risk_dist
-
-    if rr < config.MIN_RR_RATIO:
-        return (
-            False, round(rr, 2),
-            f"RR ratio {rr:.2f} below minimum {config.MIN_RR_RATIO}",
-        )
-
-    return True, round(rr, 2), ""
-
-
-def compute_position_size(
-    balance: float,
-    entry: float,
-    sl: float,
-    consecutive_losses: int,
-) -> tuple[float, float, float]:
-    """Compute position size in coins based on risk parameters.
-
-    Returns
-    -------
-    tuple[float, float, float]
-        (position_size_coins, risk_usd, risk_pct).
+    Room 3 Upgrade: Institutional Risk Controls.
+    Handles ATR-based scaling, Daily Loss Locks, and Position Sizing.
     """
-    # Defense-in-depth: should be caught by circuit breakers
-    if consecutive_losses >= config.MAX_CONSECUTIVE_LOSSES_HALT:
-        return 0.0, 0.0, 0.0
+    def __init__(self, config_path):
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+        self.logger = logging.getLogger("RiskEngine")
+        
+        # State tracking for the trading day
+        self.daily_pnl = 0.0
+        self.max_daily_loss = -0.05 # -5% of total account
+        self.circuit_broken = False
 
-    # Risk percentage adjustment
-    if consecutive_losses >= config.CONSECUTIVE_LOSS_REDUCE_THRESHOLD:
-        risk_pct: float = config.REDUCED_RISK_PCT
-    else:
-        risk_pct = config.MAX_RISK_PCT
+    def check_circuit_breaker(self, current_balance):
+        """Safety Gate: Stops all trading if daily drawdown is hit."""
+        if self.daily_pnl <= (current_balance * self.max_daily_loss):
+            self.circuit_broken = True
+            self.logger.critical("[CRITICAL] Daily Loss Lock Triggered. All trading suspended.")
+            return False
+        return True
 
-    sl_distance: float = abs(entry - sl)
+    def calculate_position_size(self, balance, risk_per_trade, entry_price, stop_loss_price, atr):
+        """
+        Elite Position Sizing:
+        Combines fixed fractional risk with Volatility (ATR) scaling.
+        """
+        if self.circuit_broken:
+            return 0.0
 
-    # Guard against zero SL distance
-    if sl_distance == 0:
-        return 0.0, 0.0, risk_pct
+        # Risk Amount in Dollars (e.g., 2% of $1,000 = $20)
+        risk_amount = balance * risk_per_trade
+        
+        # Price Distance to Stop Loss
+        price_risk = abs(entry_price - stop_loss_price)
+        
+        if price_risk == 0:
+            return 0.0
 
-    risk_usd: float = balance * risk_pct
-    position_size: float = risk_usd / sl_distance
+        # Raw Position Size based on SL distance
+        raw_position_size = risk_amount / price_risk
+        
+        # ATR Scaling (Volatiltiy Filter)
+        # If market is extremely volatile (High ATR), we reduce size further.
+        volatility_multiplier = 1.0
+        if atr > (entry_price * 0.02): # If ATR is > 2% of price
+            volatility_multiplier = 0.5 # Cut size in half for safety
+            
+        final_position_size = raw_position_size * entry_price * volatility_multiplier
+        
+        # Final sanity check: Cap at 10x Max Leverage
+        max_notional = balance * 10.0
+        return min(final_position_size, max_notional)
 
-    # Guard against negative or zero result
-    if position_size <= 0:
-        return 0.0, 0.0, risk_pct
-
-    return round(position_size, config.QUANTITY_PRECISION), round(risk_usd, 2), risk_pct
-
-
-def enforce_leverage(
-    position_size: float, entry: float, balance: float,
-) -> tuple[float, float]:
-    """Enforce max leverage constraint, scaling position if needed.
-
-    Returns
-    -------
-    tuple[float, float]
-        (final_position_size, leverage_used).
-    """
-    if balance <= 0 or entry <= 0:
-        return 0.0, 0.0
-
-    notional: float = position_size * entry
-    required_leverage: float = notional / balance
-
-    if required_leverage > config.MAX_LEVERAGE:
-        # Cap at max leverage and recompute position size
-        capped_notional: float = balance * config.MAX_LEVERAGE
-        position_size = capped_notional / entry
-        position_size = round(position_size, config.QUANTITY_PRECISION)
-        required_leverage = config.MAX_LEVERAGE
-
-    return position_size, round(required_leverage, 2)
+    def update_pnl(self, pnl_change):
+        """Updates the daily PnL tracker."""
+        self.daily_pnl += pnl_change
+        if self.daily_pnl < 0:
+            self.logger.info(f"[RISK] Daily Drawdown: {self.daily_pnl}")

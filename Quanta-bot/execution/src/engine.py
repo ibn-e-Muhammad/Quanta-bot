@@ -14,8 +14,6 @@ from datetime import datetime, timezone
 from . import config
 from .signal_intake import validate_signal
 from .account_state import validate_account_state
-from .circuit_breakers import check_circuit_breakers
-from .risk_engine import validate_rr, compute_position_size, enforce_leverage
 from .order_builder import build_order
 from .trade_logger import log_trade, log_decision
 
@@ -23,6 +21,8 @@ from .trade_logger import log_trade, log_decision
 def run_execution_engine(
     signal: dict,
     account_state: dict,
+    atr: float,
+    risk_engine,
     *,
     db_path: str | None = None,
     log_path: str | None = None,
@@ -68,8 +68,9 @@ def run_execution_engine(
             return _reject("Invalid account state — missing or malformed fields")
 
         # ---- Step 4: Circuit breakers ----
-        breaker_passed, breaker_reason = check_circuit_breakers(validated_account)
-        if not breaker_passed:
+        balance: float = validated_account["account_balance"]
+        if not risk_engine.check_circuit_breaker(balance):
+            breaker_reason = "Daily Loss Lock Triggered"
             _log_decision_safe(
                 action="REJECT", signal_type=sig_type,
                 symbol=validated_signal["symbol"],
@@ -78,39 +79,29 @@ def run_execution_engine(
             )
             return _reject(breaker_reason)
 
-        # ---- Step 5: RR validation ----
+        # ---- Step 5: ATR-Scaled Position sizing ----
         entry: float = validated_signal["suggested_entry"]
         sl: float = validated_signal["suggested_sl"]
         tp: float = validated_signal["suggested_tp"]
 
-        rr_valid, rr_ratio, rr_reason = validate_rr(entry, sl, tp, sig_type)
-        if not rr_valid:
-            _log_decision_safe(
-                action="REJECT", signal_type=sig_type,
-                symbol=validated_signal["symbol"],
-                reason=rr_reason,
-                log_path=log_path,
-            )
-            return _reject(rr_reason)
-
-        # ---- Step 6: Position sizing ----
-        balance: float = validated_account["account_balance"]
-        consec_losses: int = validated_account["consecutive_losses"]
-
-        pos_size, risk_usd, risk_pct = compute_position_size(
-            balance, entry, sl, consec_losses,
+        risk_per_trade = risk_engine.config.get("strategy_thresholds", {}).get("risk_per_trade", 0.02)
+        
+        final_size = risk_engine.calculate_position_size(
+            balance=balance,
+            risk_per_trade=risk_per_trade,
+            entry_price=entry,
+            stop_loss_price=sl,
+            atr=atr
         )
 
-        if pos_size <= 0:
-            return _reject("Position size is zero or negative — trade rejected")
-
-        # ---- Step 7: Leverage enforcement ----
-        final_size, leverage_used = enforce_leverage(pos_size, entry, balance)
-
         if final_size <= 0:
-            return _reject("Final position size is zero after leverage cap")
+            return _reject("Final position size is zero after ATR scaling and leverage caps.")
 
-        # ---- Step 8: Build order ----
+        leverage_used = final_size / balance
+        risk_usd = balance * risk_per_trade
+        risk_pct = risk_per_trade
+
+        # ---- Step 6: Build order ----
         order: dict = build_order(validated_signal, final_size, leverage_used)
 
         # ---- Step 9: Log trade to SQLite ----
@@ -140,8 +131,8 @@ def run_execution_engine(
             "strategy_used": validated_signal.get("strategy_used", ""),
             "size": final_size,
             "leverage": leverage_used,
-            "rr": rr_ratio,
             "risk_usd": risk_usd,
+            "rr": 0.0,
             "reason": f"Trade approved — {validated_signal.get('strategy_used', '')} {sig_type}",
         }
         log_decision(decision_entry, log_path=log_path)
@@ -153,7 +144,6 @@ def run_execution_engine(
             "risk_summary": {
                 "position_size": final_size,
                 "leverage": leverage_used,
-                "rr_ratio": rr_ratio,
                 "risk_usd": risk_usd,
                 "risk_pct": risk_pct,
             },

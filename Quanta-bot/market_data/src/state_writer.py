@@ -24,14 +24,16 @@ VALID_VOLATILITY_STATES = {"HIGH", "NORMAL", "LOW"}
 # ---------------------------------------------------------------------------
 # SAFE MODE payload (from data-context.md Section 7)
 # ---------------------------------------------------------------------------
-def build_safe_mode_payload() -> dict:
+def build_safe_mode_payload(symbol: str = "UNKNOWN") -> dict:
     """Return the exact SAFE MODE JSON payload."""
     return {
-        "symbol": "UNKNOWN",
+        "symbol": symbol,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "price": 0.0,
-        "ema_20": 0.0,
-        "ema_50": 0.0,
+        "ema_fast": 0.0,
+        "ema_slow": 0.0,
+        "ema_confirm": 0.0,
+        "ema_trend": 0.0,
         "vwap": 0.0,
         "rsi": 50.0,
         "adx": 0.0,
@@ -68,7 +70,7 @@ def validate_state(state: dict) -> bool:
 
         # Check for None / NaN in numeric fields
         numeric_keys = [
-            "price", "ema_20", "ema_50", "vwap", "rsi", "adx", "atr",
+            "price", "ema_fast", "ema_slow", "ema_confirm", "ema_trend", "vwap", "rsi", "adx", "atr",
             "bb_lower", "bb_upper", "current_volume", "volume_sma_20",
             "support_level", "resistance_level",
         ]
@@ -106,7 +108,7 @@ def write_state(state: dict, output_path: str | None = None) -> None:
         5. On ANY failure → write SAFE MODE payload instead.
     """
     if output_path is None:
-        output_path = str(config.STATE_FILE_PATH)
+        raise ValueError("output_path must be provided to write_state")
 
     target = os.path.abspath(output_path)
     target_dir = os.path.dirname(target)
@@ -121,7 +123,7 @@ def write_state(state: dict, output_path: str | None = None) -> None:
 
     except Exception:
         # SAFE MODE fallback — guaranteed write
-        safe = build_safe_mode_payload()
+        safe = build_safe_mode_payload(state.get("symbol", "UNKNOWN"))
         _atomic_write(safe, target, target_dir)
 
 

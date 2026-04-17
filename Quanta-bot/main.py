@@ -35,10 +35,65 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 # Room imports
+from strategy.src.state_reader import read_market_state
 from market_data.src.engine import run_market_engine
 from strategy.src.engine import run_strategy_engine
 from execution.src.engine import run_execution_engine
+from execution.src.risk_engine import RiskEngine
 from research.src.engine import run_research_engine
+
+# ===========================================================================
+# MTF Gating Helper
+# ===========================================================================
+def check_mtf_gates(signal: dict, mtf_context: dict) -> dict:
+    sig = signal.get("signal", "HOLD")
+
+    c_4h = mtf_context.get("4h", {})
+    c_1h = mtf_context.get("1h", {})
+
+    p_4h = c_4h.get("price", 0)
+    e200_4h = c_4h.get("ema_trend", 0)
+    rsi_4h = c_4h.get("rsi", 50)
+    
+    e50_1h = c_1h.get("ema_confirm", 0)
+    e200_1h = c_1h.get("ema_trend", 0)
+    adx_1h = c_1h.get("adx", 0)
+
+    bias_4h = "NEUTRAL"
+    if p_4h > e200_4h and rsi_4h < 70: bias_4h = "BULLISH"
+    elif p_4h < e200_4h and rsi_4h > 30: bias_4h = "BEARISH"
+
+    conf_1h = "NOT CONFIRMED"
+    if sig == "BUY" and e50_1h > e200_1h and adx_1h >= 20: conf_1h = "CONFIRMED"
+    elif sig == "SELL" and e50_1h < e200_1h and adx_1h >= 20: conf_1h = "CONFIRMED"
+    elif sig == "HOLD":
+        if e50_1h > e200_1h and adx_1h >= 20: conf_1h = "BULLISH CONFIRMED"
+        elif e50_1h < e200_1h and adx_1h >= 20: conf_1h = "BEARISH CONFIRMED"
+
+    if sig == "HOLD":
+        return {
+            "pass": False,
+            "4h": bias_4h,
+            "1h": conf_1h,
+            "reason": signal.get("reason", "HOLD")
+        }
+
+    is_pass = False
+    fail_reason = "MTF_BIAS_MISMATCH"
+    
+    if sig == "BUY" and bias_4h == "BULLISH" and conf_1h == "CONFIRMED":
+        is_pass = True
+        fail_reason = ""
+    elif sig == "SELL" and bias_4h == "BEARISH" and conf_1h == "CONFIRMED":
+        is_pass = True
+        fail_reason = ""
+
+    return {
+        "pass": is_pass,
+        "4h": bias_4h,
+        "1h": conf_1h,
+        "reason": fail_reason or "MTF Alignment Confirmed"
+    }
 
 # ===========================================================================
 # State Management
@@ -115,8 +170,23 @@ def fetch_account_state() -> dict:
     }
 
 # ===========================================================================
-# The Infinite Loop
+# Matrix Configuration
 # ===========================================================================
+_STRATEGY_CONFIG_PATH = _ROOT / "runtime" / "config" / "strategy_config.json"
+
+def _load_matrix() -> tuple[list[str], list[str]]:
+    """Load watchlist and intervals from strategy_config.json matrix section."""
+    try:
+        with open(_STRATEGY_CONFIG_PATH, "r") as f:
+            cfg = json.load(f)
+        matrix = cfg.get("matrix", {})
+        watchlist = matrix.get("watchlist", ["BTCUSDT"])
+        intervals = matrix.get("intervals", ["15m"])
+        return watchlist, intervals
+    except Exception as e:
+        logger.warning(f"Failed to load matrix config: {e}. Using defaults.")
+        return ["BTCUSDT"], ["15m"]
+
 def main():
     logger.info("Initializing Quanta-Elite System Orchestrator...")
     
@@ -135,39 +205,101 @@ def main():
         logger.error("FATAL: Live trading requires BINANCE_SECRET. Halting.")
         sys.exit(1)
 
+    # 2. Load Matrix & Risk
+    watchlist, intervals = _load_matrix()
+    total_combinations = len(watchlist) * len(intervals)
+    logger.info(f"Matrix loaded: {len(watchlist)} symbols × {len(intervals)} intervals = {total_combinations} state updates per cycle.")
+    
+    risk_engine = RiskEngine(str(_STRATEGY_CONFIG_PATH))
+
     logger.info("System Initialization Complete. Starting deterministic sequence.")
 
-    # 2. Infinite Loop
+    # 3. Infinite Loop
     try:
         while SYSTEM_STATE["running"]:
             SYSTEM_STATE["cycle_id"] += 1
             cycle = SYSTEM_STATE["cycle_id"]
             logger.info(f"--- STARTING CYCLE {cycle} ---")
             
-            # --- PHASE A: PERCEPTION (Room 1) ---
-            logger.info("[PHASE A] Running Market Engine...")
-            try:
-                run_market_engine()
-            except Exception as loop_e:
-                # In testing, if Room 1 is mocked, it might fail. Only halt if we want strict execution.
-                logger.warning(f"Market Engine encountered an issue: {loop_e}")
-                # For this proof of concept, we won't crash if Market Engine doesn't have live feeds.
+            # --- PHASE A & B: PERCEPTION & LOGIC (Rooms 1 & 2) ---
+            potential_trades = []
             
-            # --- PHASE B: LOGIC (Room 2) ---
-            logger.info("[PHASE B] Running Strategy Engine...")
-            signal = run_strategy_engine()
-            if signal.get("signal", "HOLD") == "HOLD":
-                logger.info(f"[PHASE B] HOLD signal received. Reason: {signal.get('reason', 'Unknown')}. Cycle complete.")
-                # Give CPU a breather
-                time.sleep(10)
+            for symbol in watchlist:
+                mtf_context = {}
+                
+                # Fetch all intervals for the MTF Context
+                for interval in intervals:
+                    try:
+                        run_market_engine(symbol, interval)
+                        state = read_market_state(symbol, interval)
+                        if state:
+                            mtf_context[interval] = state
+                    except Exception as loop_e:
+                        logger.warning(f"[{symbol}|{interval}] Market Engine encountered an issue: {loop_e}")
+                
+                # Exclusively pass ONLY 15m to strategy engine
+                signal = run_strategy_engine(symbol, "15m")
+                
+                # MTF Gate Checks
+                mtf_result = check_mtf_gates(signal, mtf_context)
+                
+                # X-Ray MTF Logging format requested by specification
+                res_sig = signal.get("signal", "HOLD")
+                final_action = "ACCEPTED" if mtf_result["pass"] else "REJECTED"
+                
+                print(f"[MTF SCAN] {symbol}")
+                print(f"- 4H:  {mtf_result['4h']}")
+                print(f"- 1H:  {mtf_result['1h']}")
+                print(f"- 15M: {res_sig}")
+                print(f"- FINAL: {final_action} ({mtf_result['reason']})")
+                print("-" * 50)
+                
+                if mtf_result["pass"]:
+                    # Scoring Upgrade: Add 1D trend MTF bonus if it aligns with 15m signal
+                    mtf_bonus = 0.0
+                    c_1d = mtf_context.get("1d", {})
+                    if c_1d:
+                        primary_1d = c_1d.get("state", {}).get("primary", "")
+                        if res_sig == "BUY" and primary_1d == "TRENDING_UP":
+                            mtf_bonus = 0.1
+                        elif res_sig == "SELL" and primary_1d == "TRENDING_DOWN":
+                            mtf_bonus = 0.1
+                            
+                    signal["composite_score"] += mtf_bonus
+                    potential_trades.append(signal)
+
+            # --- X-Ray Competition Logging ---
+            if potential_trades:
+                # Sort descending by composite_score
+                potential_trades.sort(key=lambda s: s.get("composite_score", 0), reverse=True)
+                
+                ranking_strs = [f"{s.get('symbol')} ({s.get('composite_score', 0):.2f})" for s in potential_trades]
+                winner_symbol = potential_trades[0].get("symbol")
+                logger.info(f"[ORCHESTRATOR] Ranking: {', '.join(ranking_strs)}. Selecting {winner_symbol}.")
+                
+                best_signal = potential_trades[0]
+            else:
+                logger.info(f"[ORCHESTRATOR] Sweep Complete. 0 opportunities qualified. Entering 60s sleep.")
+                time.sleep(60)
                 continue
-            
+
             # --- PHASE C: EXECUTION (Room 3) ---
-            logger.info(f"[PHASE C] {signal.get('signal')} signal received. Fetching account state...")
-            account_state = fetch_account_state()
+            logger.info(f"[PHASE C] {best_signal.get('signal')} signal received for {best_signal.get('symbol')}. Fetching account state...")
+            if SYSTEM_STATE["paper_trading"]:
+                account_state = {
+                    "account_balance": 10000.0,
+                    "daily_equity_start": 10000.0,
+                    "daily_peak_equity": 10000.0,
+                    "daily_trade_count": 0,
+                    "consecutive_losses": 0,
+                    "system_status": "ACTIVE"
+                }
+            else:
+                account_state = fetch_account_state()
             
             logger.info("[PHASE C] Running Execution Engine...")
-            execution_result = run_execution_engine(signal, account_state)
+            atr_val = mtf_context.get("15m", {}).get("atr", 0.0)
+            execution_result = run_execution_engine(best_signal, account_state, atr=atr_val, risk_engine=risk_engine)
             
             if execution_result["action"] == "REJECT":
                 reason = execution_result.get("rejection_reason", "Unknown")
@@ -196,11 +328,7 @@ def main():
             
             # Loop delay for sanity
             logger.info(f"--- CYCLE {cycle} COMPLETE ---")
-            time.sleep(2)
-            
-            # For demonstration, we break after 1 cycle to prevent infinite hanging
-            # Remove this in production.
-            break
+            time.sleep(60)
 
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received. Shutting down gracefully.")

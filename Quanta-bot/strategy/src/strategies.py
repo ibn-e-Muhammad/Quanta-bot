@@ -14,7 +14,7 @@ from . import config
 # ---------------------------------------------------------------------------
 # Trend Pullback Strategy (strategy-context.md §3)
 # ---------------------------------------------------------------------------
-def evaluate_trend(state: dict) -> dict | None:
+def evaluate_trend(state: dict) -> dict | str:
     """Evaluate trend-following pullback entry.
 
     TRENDING_UP  → BUY when price pulls back to EMA_20
@@ -22,57 +22,63 @@ def evaluate_trend(state: dict) -> dict | None:
     """
     primary: str = state["state"]["primary"]
     adx: float = state["adx"]
-    ema_20: float = state["ema_20"]
-    ema_50: float = state["ema_50"]
+    ema_fast: float = state["ema_fast"]
+    ema_slow: float = state["ema_slow"]
     price: float = state["price"]
     volume: float = state["current_volume"]
     vol_sma: float = state["volume_sma_20"]
     atr: float = state["atr"]
 
+    if primary not in ("TRENDING_UP", "TRENDING_DOWN"):
+        return f"Trend: Primary state is {primary}"
+    
+    if adx < config.ADX_TREND_THRESHOLD:
+        return f"Trend: ADX ({adx:.1f}) below threshold ({config.ADX_TREND_THRESHOLD})"
+        
+    if volume < vol_sma * config.VOLUME_CONFIRM_MULTIPLIER:
+        return f"Trend: Volume ({volume:.1f}) below multiplier threshold"
+
     # --- TRENDING UP ---
     if primary == "TRENDING_UP":
-        if (
-            adx >= config.ADX_TREND_THRESHOLD
-            and ema_20 > ema_50
-            and volume >= vol_sma * config.VOLUME_CONFIRM_MULTIPLIER
-        ):
-            # Price within ±0.2% of EMA_20
-            if abs(price - ema_20) / ema_20 <= config.EMA_PROXIMITY_PCT:
-                return _build_signal(
-                    state=state,
-                    signal="BUY",
-                    strategy="Trend_Pullback",
-                    entry=price,
-                    sl=ema_50 * 0.99,
-                    tp=price + (atr * 2),
-                    reason=f"Trend pullback BUY: price near EMA_20, ADX={adx:.1f}, volume confirmed",
-                )
+        if ema_fast <= ema_slow:
+            return f"Trend UP: EMA_FAST ({ema_fast:.2f}) <= EMA_SLOW ({ema_slow:.2f})"
+        if abs(price - ema_fast) / ema_fast > config.EMA_PROXIMITY_PCT:
+            return f"Trend UP: Price ({price:.2f}) not within {config.EMA_PROXIMITY_PCT*100}% of EMA_FAST"
+            
+        return _build_signal(
+            state=state,
+            signal="BUY",
+            strategy="Trend_Pullback",
+            entry=price,
+            sl=ema_slow * 0.99,
+            tp=price + (atr * 2),
+            reason=f"Trend pullback BUY: price near EMA_FAST, ADX={adx:.1f}, volume confirmed",
+        )
 
     # --- TRENDING DOWN ---
     if primary == "TRENDING_DOWN":
-        if (
-            adx >= config.ADX_TREND_THRESHOLD
-            and ema_20 < ema_50
-            and volume >= vol_sma * config.VOLUME_CONFIRM_MULTIPLIER
-        ):
-            if abs(price - ema_20) / ema_20 <= config.EMA_PROXIMITY_PCT:
-                return _build_signal(
-                    state=state,
-                    signal="SELL",
-                    strategy="Trend_Pullback",
-                    entry=price,
-                    sl=ema_50 * 1.01,
-                    tp=price - (atr * 2),
-                    reason=f"Trend pullback SELL: price near EMA_20, ADX={adx:.1f}, volume confirmed",
-                )
+        if ema_fast >= ema_slow:
+            return f"Trend DOWN: EMA_FAST ({ema_fast:.2f}) >= EMA_SLOW ({ema_slow:.2f})"
+        if abs(price - ema_fast) / ema_fast > config.EMA_PROXIMITY_PCT:
+            return f"Trend DOWN: Price ({price:.2f}) not within {config.EMA_PROXIMITY_PCT*100}% of EMA_FAST"
+            
+        return _build_signal(
+            state=state,
+            signal="SELL",
+            strategy="Trend_Pullback",
+            entry=price,
+            sl=ema_slow * 1.01,
+            tp=price - (atr * 2),
+            reason=f"Trend pullback SELL: price near EMA_FAST, ADX={adx:.1f}, volume confirmed",
+        )
 
-    return None
+    return "Trend: Unknown combination"
 
 
 # ---------------------------------------------------------------------------
 # Range Strategy (strategy-context.md §4)
 # ---------------------------------------------------------------------------
-def evaluate_range(state: dict) -> dict | None:
+def evaluate_range(state: dict) -> dict | str:
     """Evaluate mean-reversion range entries at Bollinger Band extremes."""
     primary: str = state["state"]["primary"]
     adx: float = state["adx"]
@@ -82,11 +88,16 @@ def evaluate_range(state: dict) -> dict | None:
     bb_upper: float = state["bb_upper"]
     vwap: float = state["vwap"]
 
-    if primary != "RANGING" or adx >= config.ADX_TREND_THRESHOLD:
-        return None
+    if primary != "RANGING":
+        return f"Range: Primary state is {primary}"
+        
+    if adx >= config.ADX_TREND_THRESHOLD:
+        return f"Range: ADX ({adx:.1f}) >= threshold ({config.ADX_TREND_THRESHOLD})"
 
     # --- BUY ZONE ---
-    if price <= bb_lower and rsi <= config.RSI_OVERSOLD:
+    if price <= bb_lower:
+        if rsi > config.RSI_OVERSOLD:
+            return f"Range BUY: RSI ({rsi:.1f}) not oversold (>{config.RSI_OVERSOLD})"
         return _build_signal(
             state=state,
             signal="BUY",
@@ -98,7 +109,9 @@ def evaluate_range(state: dict) -> dict | None:
         )
 
     # --- SELL ZONE ---
-    if price >= bb_upper and rsi >= config.RSI_OVERBOUGHT:
+    if price >= bb_upper:
+        if rsi < config.RSI_OVERBOUGHT:
+            return f"Range SELL: RSI ({rsi:.1f}) not overbought (<{config.RSI_OVERBOUGHT})"
         return _build_signal(
             state=state,
             signal="SELL",
@@ -109,13 +122,13 @@ def evaluate_range(state: dict) -> dict | None:
             reason=f"Range SELL: price at BB upper, RSI={rsi:.1f} overbought",
         )
 
-    return None
+    return f"Range: Price ({price:.2f}) not outside BB ({bb_lower:.2f} - {bb_upper:.2f})"
 
 
 # ---------------------------------------------------------------------------
 # Breakout Strategy (strategy-context.md §5)
 # ---------------------------------------------------------------------------
-def evaluate_breakout(state: dict) -> dict | None:
+def evaluate_breakout(state: dict) -> dict | str:
     """Evaluate breakout entries beyond support/resistance with volume spike."""
     volatility: str = state["state"]["volatility"]
     adx: float = state["adx"]
@@ -126,12 +139,14 @@ def evaluate_breakout(state: dict) -> dict | None:
     resistance: float = state["resistance_level"]
     support: float = state["support_level"]
 
-    if (
-        volatility != "HIGH"
-        or adx < config.ADX_TREND_THRESHOLD
-        or volume < vol_sma * config.BREAKOUT_VOLUME_MULTIPLIER
-    ):
-        return None
+    if volatility != "HIGH":
+        return f"Breakout: Volatility is {volatility}"
+    
+    if adx < config.ADX_TREND_THRESHOLD:
+        return f"Breakout: ADX ({adx:.1f}) below threshold ({config.ADX_TREND_THRESHOLD})"
+        
+    if volume < vol_sma * config.BREAKOUT_VOLUME_MULTIPLIER:
+        return f"Breakout: Volume ({volume:.1f}) below multiplier threshold"
 
     # --- UPSIDE BREAKOUT ---
     if price > resistance * (1 + config.BREAKOUT_PRICE_THRESHOLD):
@@ -157,7 +172,7 @@ def evaluate_breakout(state: dict) -> dict | None:
             reason=f"Breakout SELL: price below support {support:.2f}, volume spike confirmed",
         )
 
-    return None
+    return f"Breakout: Price ({price:.2f}) inside S/R bounds"
 
 
 # ---------------------------------------------------------------------------

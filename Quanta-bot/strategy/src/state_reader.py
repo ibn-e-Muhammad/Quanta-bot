@@ -18,7 +18,7 @@ from . import config
 # Required keys in the market state JSON
 # ---------------------------------------------------------------------------
 _NUMERIC_KEYS: list[str] = [
-    "price", "ema_20", "ema_50", "vwap", "rsi", "adx", "atr",
+    "price", "ema_fast", "ema_slow", "ema_confirm", "ema_trend", "vwap", "rsi", "adx", "atr",
     "bb_lower", "bb_upper", "current_volume", "volume_sma_20",
     "support_level", "resistance_level",
 ]
@@ -31,20 +31,24 @@ _REQUIRED_KEYS: list[str] = [
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def read_market_state(path: str | None = None) -> dict | None:
+def read_market_state(symbol: str, interval: str = "15m", path: str | None = None) -> dict | None:
     """Read and validate the market state JSON.
 
     Parameters
     ----------
+    symbol : str
+        The watchlist symbol, e.g., "BTCUSDT".
+    interval : str
+        The timeframe interval, e.g., "15m".
     path : str | None
-        Path to the JSON file. Defaults to config.STATE_FILE_PATH.
+        Override path to the JSON file. Defaults to getting path from config.
 
     Returns
     -------
     dict | None
         Validated market state dict, or None if any validation fails.
     """
-    file_path: str = path if path is not None else str(config.STATE_FILE_PATH)
+    file_path: str = path if path is not None else str(config.get_state_path(symbol, interval))
 
     try:
         with open(file_path, "r") as f:

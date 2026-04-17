@@ -1,0 +1,23 @@
+{
+  "exit_profiles": [
+    { "name": "fixed_3R", "tp_rr": 3.0, "partial": false },
+    { "name": "fixed_2R", "tp_rr": 2.0, "partial": false },
+    { "name": "partial_1.5_3R", "tp_rr": [1.5, 3.0], "partial": true },
+    { "name": "atr_trailing", "type": "atr_trailing" },
+    { "name": "ema_trailing", "type": "ema_trailing" }
+  ],
+
+  "mtf_modes": [
+    { "name": "strict", "use_4h": true, "use_1h": true },
+    { "name": "soft", "use_4h": "bonus", "use_1h": true },
+    { "name": "fast", "use_4h": false, "use_1h": true }
+  ],
+
+  "strategy_types": [
+    { "name": "trend_follow" },
+    { "name": "mean_reversion" },
+    { "name": "breakout" }
+  ],
+
+  "signal_thresholds": [2, 3, 4]
+}
