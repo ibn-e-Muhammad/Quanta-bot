@@ -244,7 +244,7 @@ class HistoricalSimulator:
             if sig_val == 1: sl = entry_price - (atr * 2)
             else: sl = entry_price + (atr * 2)
                 
-            risk_per_trade = 0.015  # Phase 4.80: Institutional 1.5% Base
+            risk_per_trade = 0.0075  # Phase 4.9: FTMO Constraint 0.75% Base
             notional = risk_engine.calculate_position_size(
                 balance=current_balance, 
                 risk_per_trade=risk_per_trade, 

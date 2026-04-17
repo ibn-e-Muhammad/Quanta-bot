@@ -11,8 +11,8 @@ def evaluate_trade_quality(row):
     atr_sma = row['atr_sma']
     
     # ATR Expansion Spike Filter ACTIVE
-    # Re-enabled to ensure physical breakaway velocity compensates for static exit parameters definitively.
-    if atr <= atr_sma:
+    # Modified Phase 4.9: 10% Leniency Tolerance
+    if atr <= (atr_sma * 0.9):
         return False
         
     # Macro Trend Alignment (200 EMA Flow) ACTIVE

@@ -15,8 +15,8 @@ def is_fee_viable(entry_price, sl_price, notional):
     estimated_slippage = notional * 0.0002
     total_friction = estimated_fees + estimated_slippage
     
-    # 3. Mandatory 1.5x Reward Margin Limits structurally
-    if theoretical_1r_profit < (total_friction * 1.5):
+    # 3. Mandatory 1.4x Reward Margin Limits structurally
+    if theoretical_1r_profit < (total_friction * 1.4):
         return False
         
     return True
