@@ -19,6 +19,13 @@ def generate_signal(row):
     if signal == 1:
         # Tight SL natively avoiding Taker bleed safely
         sl = close - (atr * 1.5)
+        
+        # Phase 5.1: R:R Inversion Fix
+        risk = close - sl
+        reward = mean - close
+        if reward < risk:
+            return {"signal": 0, "sl": 0, "tp1": 0, "tp2": 0, "strategy": "none"}
+            
         # Target middle mean explicitly netting logical maker hits dynamically
         tp1 = close + abs(mean - close) * 0.5
         tp2 = mean # Full TP structurally at the mean line
@@ -26,6 +33,13 @@ def generate_signal(row):
         
     elif signal == -1:
         sl = close + (atr * 1.5)
+        
+        # Phase 5.1: R:R Inversion Fix
+        risk = sl - close
+        reward = close - mean
+        if reward < risk:
+            return {"signal": 0, "sl": 0, "tp1": 0, "tp2": 0, "strategy": "none"}
+            
         tp1 = close - abs(close - mean) * 0.5
         tp2 = mean
         return {"signal": -1, "sl": sl, "tp1": tp1, "tp2": tp2, "strategy": "mean_reversion_engine"}

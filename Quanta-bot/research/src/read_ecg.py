@@ -78,4 +78,4 @@ def generate_ecg_report(db_path):
         print("[FAIL SAFE] SYSTEM REQUIREMENTS NOT MET")
 
 if __name__ == "__main__":
-    generate_ecg_report("D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v9/portfolio_results.sqlite")
+    generate_ecg_report("D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v10/portfolio_results.sqlite")

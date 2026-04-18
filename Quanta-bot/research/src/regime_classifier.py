@@ -5,9 +5,8 @@ def classify_regime(row):
     """
     atr = row['atr']
     atr_sma = row['atr_sma']
-    ema_50 = row['ema_50']
-    ema_50_slope = row['ema_50_slope']
-    close = row['close']
+    ema_fast = row['ema_fast']
+    ema_slow = row['ema_slow']
     ema_trend = row['ema_trend']
     
     # LOW_VOL: Compressed deeply
@@ -18,13 +17,9 @@ def classify_regime(row):
     if atr > (atr_sma * 1.2):
         return "EXPANSION"
         
-    # TRENDING: Measurable institutional slope dynamically
-    # 0.05% slope per 5 periods is an objective standard
-    slope_pct = abs(ema_50_slope) / ema_50 * 100
-    if slope_pct > 0.05:
-        # Check alignment specifically
-        if (close > ema_trend and ema_50_slope > 0) or (close < ema_trend and ema_50_slope < 0):
-            return "TRENDING"
+    # TRENDING: Phase 5.1 Alignment sequence (9 > 24 > 200) natively removing Slope Lag structurally
+    if (ema_fast > ema_slow and ema_slow > ema_trend) or (ema_fast < ema_slow and ema_slow < ema_trend):
+        return "TRENDING"
             
     # Default to choppy structurally
     return "CHOPPY"
