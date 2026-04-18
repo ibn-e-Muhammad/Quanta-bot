@@ -76,6 +76,27 @@ def _load_phase61_for_db(db_path, matrix_map):
     return matrix_map.get(_infer_tier_name(db_path), {})
 
 
+def _load_phase62_matrix(folder):
+    matrix_path = folder / "phase62_scaling_matrix.json"
+    data = _load_json(matrix_path)
+    out = {}
+    if isinstance(data, list):
+        for row in data:
+            if isinstance(row, dict):
+                tier_name = str(row.get("tier_name", "")).upper().strip()
+                if tier_name:
+                    out[tier_name] = row
+    return out
+
+
+def _load_phase62_for_db(db_path, matrix_map):
+    audit_path = db_path.with_name(f"{db_path.stem}_phase62_audit.json")
+    audit = _load_json(audit_path)
+    if isinstance(audit, dict):
+        return audit
+    return matrix_map.get(_infer_tier_name(db_path), {})
+
+
 def _read_trades(db_path):
     conn = sqlite3.connect(str(db_path))
     try:
@@ -112,7 +133,7 @@ def _fmt_pf(v):
     return "inf" if np.isinf(v) else f"{v:.3f}"
 
 
-def _print_single_report(db_path, df, phase61):
+def _print_single_report(db_path, df, phase61, phase62, print_report=True):
     tier_name = _infer_tier_name(db_path)
     initial_balance = _infer_initial_balance(df, phase61)
 
@@ -159,89 +180,104 @@ def _print_single_report(db_path, df, phase61):
     daily_pnl = df.groupby("trade_date")["net_pnl_usd"].sum()
     breach_days = int((daily_pnl < dd_threshold).sum())
 
-    print("=================================================")
-    print(f" [PHASE 6] PROP FIRM SURVIVAL SYSTEM REPORT | {db_path.name}")
-    print("=================================================")
-    print(" [PORTFOLIO METRICS]")
-    print(f" Tier/Label     : {tier_name}")
-    print(f" Initial Balance: ${initial_balance:.2f}")
-    print(f" Final Balance  : ${final_bal:.2f}")
-    print(f" Total Trades   : {total_trades} (200-500: {'Y' if is_vol_ok else 'N'})")
-    print(f" Win Rate       : {win_rate:.2f}%  ({wins}W / {losses}L)")
-    print(f" Profit Factor  : {_fmt_pf(pf)} (>= 1.10: {'Y' if is_pf_ok else 'N'})")
-    print(f" Net PnL        : ${net_pnl:.2f} ({net_pnl_pct:.2f}%)")
-    print(f" Max Drawdown   : {max_dd:.2f}% (<= 12%: {'Y' if is_dd_ok else 'N'})")
-    print(f" Max Win Trade  : ${max_win:.2f}")
-    print(f" Avg Win / Loss : ${avg_win:.2f} / ${avg_loss:.2f}")
-    print("-------------------------------------------------")
-    print(" [RISK METRICS]")
-    print(f" Max Consec. Losses : {max_consec_loss}")
-    print(f" Equity Curve Std   : {eq_std:.3f}% per trade")
-    print(f" Daily DD Breaches  : {breach_days} days (threshold {dd_threshold:.2f} USD/day)")
-    print("-------------------------------------------------")
-    print(" [PER-STRATEGY]")
-    for strat, grp in df.groupby("strategy_used"):
-        st = len(grp)
-        sw = len(grp[grp["outcome"] > 0])
-        sp = grp[grp["net_pnl_usd"] > 0]["net_pnl_usd"].sum()
-        sl = abs(grp[grp["net_pnl_usd"] <= 0]["net_pnl_usd"].sum())
-        spf = f"{sp / sl:.2f}" if sl > 0 else "inf"
-        print(f" * {strat}: {st} trades | WR: {sw / st * 100:.1f}% | PF: {spf} | PnL: ${grp['net_pnl_usd'].sum():.2f}")
-    print("-------------------------------------------------")
-    print(" [ENGINE STATE DISTRIBUTION]")
-    if "engine_state" in df.columns:
-        for strat, grp in df.groupby("strategy_used"):
-            sc = grp["engine_state"].value_counts().to_dict()
-            a = sc.get("ACTIVE", 0)
-            c = sc.get("COOLDOWN", 0)
-            r = sc.get("RECOVERY", 0)
-            t = max(a + c + r, 1)
-            print(f" * {strat}: ACTIVE={a}({a / t * 100:.0f}%) COOLDOWN={c} RECOVERY={r}")
-    print("-------------------------------------------------")
-    print(" [PER-TIMEFRAME BREAKDOWN]")
-    if "interval" in df.columns:
-        for tf, grp in df.groupby("interval"):
-            tt = len(grp)
-            tn = grp["net_pnl_usd"].sum()
-            tw = len(grp[grp["outcome"] > 0])
-            print(f" * {tf}: {tt} trades | WR: {tw / tt * 100:.1f}% | PnL: ${tn:.2f}")
-
-    if phase61:
+    if print_report:
+        print("=================================================")
+        print(f" [PHASE 6] PROP FIRM SURVIVAL SYSTEM REPORT | {db_path.name}")
+        print("=================================================")
+        print(" [PORTFOLIO METRICS]")
+        print(f" Tier/Label     : {tier_name}")
+        print(f" Initial Balance: ${initial_balance:.2f}")
+        print(f" Final Balance  : ${final_bal:.2f}")
+        print(f" Total Trades   : {total_trades} (200-500: {'Y' if is_vol_ok else 'N'})")
+        print(f" Win Rate       : {win_rate:.2f}%  ({wins}W / {losses}L)")
+        print(f" Profit Factor  : {_fmt_pf(pf)} (>= 1.10: {'Y' if is_pf_ok else 'N'})")
+        print(f" Net PnL        : ${net_pnl:.2f} ({net_pnl_pct:.2f}%)")
+        print(f" Max Drawdown   : {max_dd:.2f}% (<= 12%: {'Y' if is_dd_ok else 'N'})")
+        print(f" Max Win Trade  : ${max_win:.2f}")
+        print(f" Avg Win / Loss : ${avg_win:.2f} / ${avg_loss:.2f}")
         print("-------------------------------------------------")
-        print(" [PHASE 6.1 AUDIT METRICS]")
-        print(
-            f" Signals G/E/R  : {phase61.get('total_signals_generated', 'n/a')}"
-            f"/{phase61.get('total_signals_executed', 'n/a')}"
-            f"/{phase61.get('rejected_signals', 'n/a')}"
-        )
-        dup_rate = phase61.get("duplicate_signal_rejection_rate")
-        if dup_rate is not None:
-            print(f" Dup Reject Rate: {float(dup_rate) * 100:.2f}%")
-        print(
-            f" Cluster Events : {phase61.get('cluster_event_count', 'n/a')}"
-            f" | Avg Size: {phase61.get('cluster_event_avg_size', 'n/a')}"
-        )
+        print(" [RISK METRICS]")
+        print(f" Max Consec. Losses : {max_consec_loss}")
+        print(f" Equity Curve Std   : {eq_std:.3f}% per trade")
+        print(f" Daily DD Breaches  : {breach_days} days (threshold {dd_threshold:.2f} USD/day)")
+        print("-------------------------------------------------")
+        print(" [PER-STRATEGY]")
+        for strat, grp in df.groupby("strategy_used"):
+            st = len(grp)
+            sw = len(grp[grp["outcome"] > 0])
+            sp = grp[grp["net_pnl_usd"] > 0]["net_pnl_usd"].sum()
+            sl = abs(grp[grp["net_pnl_usd"] <= 0]["net_pnl_usd"].sum())
+            spf = f"{sp / sl:.2f}" if sl > 0 else "inf"
+            print(f" * {strat}: {st} trades | WR: {sw / st * 100:.1f}% | PF: {spf} | PnL: ${grp['net_pnl_usd'].sum():.2f}")
+        print("-------------------------------------------------")
+        print(" [ENGINE STATE DISTRIBUTION]")
+        if "engine_state" in df.columns:
+            for strat, grp in df.groupby("strategy_used"):
+                sc = grp["engine_state"].value_counts().to_dict()
+                a = sc.get("ACTIVE", 0)
+                c = sc.get("COOLDOWN", 0)
+                r = sc.get("RECOVERY", 0)
+                t = max(a + c + r, 1)
+                print(f" * {strat}: ACTIVE={a}({a / t * 100:.0f}%) COOLDOWN={c} RECOVERY={r}")
+        print("-------------------------------------------------")
+        print(" [PER-TIMEFRAME BREAKDOWN]")
+        if "interval" in df.columns:
+            for tf, grp in df.groupby("interval"):
+                tt = len(grp)
+                tn = grp["net_pnl_usd"].sum()
+                tw = len(grp[grp["outcome"] > 0])
+                print(f" * {tf}: {tt} trades | WR: {tw / tt * 100:.1f}% | PnL: ${tn:.2f}")
 
-    print("=================================================")
-    passed = is_pf_ok and is_dd_ok and is_vol_ok
-    if passed:
-        print("[SUCCESS] PROP FIRM CRITERIA MET")
-    else:
-        flags = []
-        if not is_pf_ok:
-            flags.append(f"PF {_fmt_pf(pf)} < 1.10")
-        if not is_dd_ok:
-            flags.append(f"MDD {max_dd:.2f}% > 12%")
-        if not is_vol_ok:
-            flags.append(f"Trades {total_trades} outside 200-500")
-        print(f"[FAIL SAFE] NOT MET: {' | '.join(flags)}")
-    print()
+        if phase61:
+            print("-------------------------------------------------")
+            print(" [PHASE 6.1 AUDIT METRICS]")
+            print(
+                f" Signals G/E/R  : {phase61.get('total_signals_generated', 'n/a')}"
+                f"/{phase61.get('total_signals_executed', 'n/a')}"
+                f"/{phase61.get('rejected_signals', 'n/a')}"
+            )
+            dup_rate = phase61.get("duplicate_signal_rejection_rate")
+            if dup_rate is not None:
+                print(f" Dup Reject Rate: {float(dup_rate) * 100:.2f}%")
+            print(
+                f" Cluster Events : {phase61.get('cluster_event_count', 'n/a')}"
+                f" | Avg Size: {phase61.get('cluster_event_avg_size', 'n/a')}"
+            )
+
+        if phase62:
+            print("-------------------------------------------------")
+            print(" [PHASE 6.2 PRIORITY METRICS]")
+            print(f" Avg Executed Score : {phase62.get('avg_executed_score', 0.0):.4f}")
+            print(f" Avg Rejected Score : {phase62.get('avg_rejected_score', 0.0):.4f}")
+            print(f" Selection Quality  : {phase62.get('selection_quality_ratio', 0.0):.4f}")
+            rej_total = phase62.get("rejected_signals", 0)
+            rej_locks = phase62.get("rejected_locks", 0)
+            rej_low = phase62.get("rejected_low_priority", 0)
+            lock_pct = (rej_locks / rej_total * 100.0) if rej_total else 0.0
+            low_pct = (rej_low / rej_total * 100.0) if rej_total else 0.0
+            print(f" Rejection Breakdown: LOCKS={rej_locks} ({lock_pct:.2f}%) | LOW_PRIORITY={rej_low} ({low_pct:.2f}%)")
+
+        print("=================================================")
+        passed = is_pf_ok and is_dd_ok and is_vol_ok
+        if passed:
+            print("[SUCCESS] PROP FIRM CRITERIA MET")
+        else:
+            flags = []
+            if not is_pf_ok:
+                flags.append(f"PF {_fmt_pf(pf)} < 1.10")
+            if not is_dd_ok:
+                flags.append(f"MDD {max_dd:.2f}% > 12%")
+            if not is_vol_ok:
+                flags.append(f"Trades {total_trades} outside 200-500")
+            print(f"[FAIL SAFE] NOT MET: {' | '.join(flags)}")
+        print()
 
     return {
         "tier": tier_name,
         "trades": total_trades,
         "wr": win_rate,
         "pf": pf,
+        "net_pnl": net_pnl,
         "net_pnl_pct": net_pnl_pct,
         "max_dd": max_dd,
         "final_bal": final_bal,
@@ -258,7 +294,9 @@ def generate_ecg_report(db_path=None):
     print(f"Reading ECG from {target}...")
     print(f"Detected {len(sqlite_files)} sqlite file(s).\n")
 
-    matrix_map = _load_phase61_matrix(target if target.is_dir() else target.parent)
+    folder = target if target.is_dir() else target.parent
+    matrix_map = _load_phase61_matrix(folder)
+    matrix62_map = _load_phase62_matrix(folder)
     summary_rows = []
 
     for db in sqlite_files:
@@ -272,7 +310,8 @@ def generate_ecg_report(db_path=None):
             continue
 
         phase61 = _load_phase61_for_db(db, matrix_map)
-        summary_rows.append(_print_single_report(db, df, phase61))
+        phase62 = _load_phase62_for_db(db, matrix62_map)
+        summary_rows.append(_print_single_report(db, df, phase61, phase62, print_report=True))
 
     if summary_rows:
         print("=================================================")
@@ -286,6 +325,40 @@ def generate_ecg_report(db_path=None):
                 f"{r['net_pnl_pct']:>9.2f} {r['max_dd']:>9.2f} {r['final_bal']:>16,.2f}"
             )
         print()
+
+        if target.is_dir() and target.name.lower() != "v19":
+            baseline_dir = target.parent / "v19"
+            if baseline_dir.exists() and baseline_dir.is_dir():
+                base_phase61 = _load_phase61_matrix(baseline_dir)
+                base_phase62 = _load_phase62_matrix(baseline_dir)
+                base_rows = {}
+                for db in sorted(baseline_dir.glob("*.sqlite")):
+                    try:
+                        bdf = _read_trades(db)
+                        if bdf.empty:
+                            continue
+                        b61 = _load_phase61_for_db(db, base_phase61)
+                        b62 = _load_phase62_for_db(db, base_phase62)
+                        bro = _print_single_report(db, bdf, b61, b62, print_report=False)
+                        base_rows[bro["tier"]] = bro
+                    except Exception:
+                        continue
+
+                if base_rows:
+                    print("=================================================")
+                    print(" [DELTA VS V19]")
+                    print("=================================================")
+                    print(f"{'Tier':<12} {'ΔPF':>10} {'ΔNetPnL%':>12} {'ΔMaxDD%':>10}")
+                    print("-" * 50)
+                    for r in sorted(summary_rows, key=lambda x: x["tier"]):
+                        b = base_rows.get(r["tier"])
+                        if not b:
+                            continue
+                        d_pf = r["pf"] - b["pf"]
+                        d_pnl = r["net_pnl_pct"] - b["net_pnl_pct"]
+                        d_dd = r["max_dd"] - b["max_dd"]
+                        print(f"{r['tier']:<12} {d_pf:>10.4f} {d_pnl:>12.2f} {d_dd:>10.2f}")
+                    print()
     return summary_rows
 
 

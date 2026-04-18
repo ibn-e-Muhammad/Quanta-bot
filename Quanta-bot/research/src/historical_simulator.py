@@ -73,9 +73,15 @@ class HistoricalSimulator:
             "rejected_concurrency_lock": 0,
             "rejected_symbol_open_lock": 0,
             "rejected_symbol_cooldown_lock": 0,
+            "rejected_low_priority": 0,
+            "rejected_locks": 0,
             "rejected_other": 0,
             "rejected_signals": 0,
             "duplicate_signal_rejection_rate": 0.0,
+            "avg_executed_score": 0.0,
+            "avg_rejected_score": 0.0,
+            "avg_all_signal_score": 0.0,
+            "selection_quality_ratio": 0.0,
             "cluster_event_count": 0,
             "cluster_event_total_size": 0,
             "cluster_event_avg_size": 0.0,
@@ -89,6 +95,49 @@ class HistoricalSimulator:
             return 0.0002
         penalty_steps = math.floor((notional - 50000) / 50000)
         return 0.0002 + (penalty_steps * 0.0001)
+
+    @staticmethod
+    def _normalize_buffer_feature(values):
+        if not values:
+            return []
+        v_min = min(values)
+        v_max = max(values)
+        if v_max == v_min:
+            return [0.5 for _ in values]
+        return [(v - v_min) / (v_max - v_min) for v in values]
+
+    def _estimate_notional_for_scoring(self, current_balance, entry_price, sl_price, risk_mult):
+        price_risk = abs(entry_price - sl_price)
+        if entry_price <= 0 or price_risk <= 0:
+            return 0.0
+        effective_risk = RISK_PER_TRADE * risk_mult
+        risk_amount = current_balance * effective_risk
+        position_size = risk_amount / price_risk
+        notional = position_size * entry_price
+        max_notional = current_balance * MAX_NOTIONAL_MULT
+        return max(0.0, min(notional, max_notional))
+
+    def _score_signal_buffer(self, signal_buffer):
+        if not signal_buffer:
+            return
+        atr_vals = [s["atr_ratio"] for s in signal_buffer]
+        adx_vals = [s["adx"] for s in signal_buffer]
+        ema_vals = [s["price_distance_from_ema"] for s in signal_buffer]
+        cost_vals = [s["estimated_cost"] for s in signal_buffer]
+
+        norm_atr = self._normalize_buffer_feature(atr_vals)
+        norm_adx = self._normalize_buffer_feature(adx_vals)
+        norm_ema = self._normalize_buffer_feature(ema_vals)
+        norm_cost = self._normalize_buffer_feature(cost_vals)
+
+        for i, s in enumerate(signal_buffer):
+            score = (
+                (norm_atr[i] * 0.4)
+                + (norm_adx[i] * 0.3)
+                + (norm_ema[i] * 0.2)
+                - (norm_cost[i] * 0.1)
+            )
+            s["score"] = score
 
     # ── DB ─────────────────────────────────────────────────────────────
     def setup_db(self):
@@ -229,6 +278,9 @@ class HistoricalSimulator:
             audit_path = db_file.with_name(f"{db_file.stem}_phase61_audit.json")
             with open(audit_path, "w", encoding="utf-8") as f:
                 json.dump(self.audit_metrics, f, indent=2)
+            phase62_audit_path = db_file.with_name(f"{db_file.stem}_phase62_audit.json")
+            with open(phase62_audit_path, "w", encoding="utf-8") as f:
+                json.dump(self.audit_metrics, f, indent=2)
 
         return {
             "db_path": self.db_path,
@@ -247,17 +299,15 @@ class HistoricalSimulator:
         engine_states     = {name: initial_state() for name in ENGINE_PRIORITY}
         risk_engine       = RiskEngine(self.config_path)
 
-        # Daily DD tracking (keyed by UTC date of CLOSE, not open)
-        daily_closed_pnl  = {}      # date → realized PnL
-        # Symbol cooldown: symbol → earliest datetime allowed to re-enter
+        daily_closed_pnl  = {}
         symbol_cooldown   = {}
+        pair_counts       = {}
 
-        # Correlation telemetry (same-candle valid activation pressure)
-        current_ts = None
-        symbols_at_ts = set()
-        pair_counts = {}
+        executed_scores = []
+        rejected_scores = []
+        all_buffered_scores = []
 
-        def flush_cluster_metrics():
+        def flush_cluster_metrics(symbols_at_ts):
             if len(symbols_at_ts) < 2:
                 return
             cluster_size = len(symbols_at_ts)
@@ -268,286 +318,348 @@ class HistoricalSimulator:
                 key = f"{a}|{b}"
                 pair_counts[key] = pair_counts.get(key, 0) + 1
 
-        for row in all_signals:
-            symbol   = row['symbol']
-            ts       = row['datetime_utc']
-            exec_tf  = row.get('exec_tf', '4h')
-            tf_min   = TF_MINUTES.get(exec_tf, 240)
+        idx = 0
+        n = len(all_signals)
+        while idx < n:
+            ts = all_signals[idx]["datetime_utc"]
+            batch_rows = []
+            while idx < n and all_signals[idx]["datetime_utc"] == ts:
+                batch_rows.append(all_signals[idx])
+                idx += 1
 
-            if current_ts is None:
-                current_ts = ts
-            elif ts != current_ts:
-                flush_cluster_metrics()
-                symbols_at_ts = set()
-                current_ts = ts
-
-            strategy_used = row.get('strategy_used', 'none')
-            if strategy_used not in ENGINE_PRIORITY:
-                continue
-
-            sig_val      = row['signal']
-            entry_price  = row['close']
-            atr          = row['atr']
-
-            # Generated signals: passed engine-level validity only.
-            if not evaluate_trade_quality(row):
-                continue
-            if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO:
-                continue
-
-            self.audit_metrics["total_signals_generated"] += 1
-            symbols_at_ts.add(symbol)
-
-            # ── Expire closed positions & apply their PnL to close-date bucket ──
             still_open = []
             for pos in open_positions:
-                if pos['exit_time'] <= ts:
-                    # Trade closed — book realized PnL to its close date
-                    close_date = pos['exit_time'].date()
-                    daily_closed_pnl[close_date] = daily_closed_pnl.get(close_date, 0.0) + pos['net_pnl']
+                if pos["exit_time"] <= ts:
+                    close_date = pos["exit_time"].date()
+                    daily_closed_pnl[close_date] = daily_closed_pnl.get(close_date, 0.0) + pos["net_pnl"]
                 else:
                     still_open.append(pos)
             open_positions = still_open
 
-            # ── Daily DD lock — based on closed PnL on current UTC date ──
+            signal_buffer = []
+            symbols_at_ts = set()
             today = ts.date()
             today_pnl = daily_closed_pnl.get(today, 0.0)
-            if today_pnl <= (current_balance * DAILY_DD_CAP):
-                self.daily_dd_breaches += 1 if today_pnl == (current_balance * DAILY_DD_CAP) else 0
-                self.audit_metrics["rejected_other"] += 1
-                continue   # blocked for the rest of this UTC day
+            daily_dd_blocked = today_pnl <= (current_balance * DAILY_DD_CAP)
 
-            # ── Global concurrency limit ──
-            if len(open_positions) >= MAX_CONCURRENT:
-                self.audit_metrics["rejected_concurrency_lock"] += 1
+            for row in batch_rows:
+                symbol = row["symbol"]
+                strategy_used = row.get("strategy_used", "none")
+                if strategy_used not in ENGINE_PRIORITY:
+                    continue
+
+                entry_price = row["close"]
+                atr = row["atr"]
+
+                if not evaluate_trade_quality(row):
+                    continue
+                if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO:
+                    continue
+
+                self.audit_metrics["total_signals_generated"] += 1
+                symbols_at_ts.add(symbol)
+
+                if daily_dd_blocked:
+                    self.daily_dd_breaches += 1 if today_pnl == (current_balance * DAILY_DD_CAP) else 0
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
+
+                allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
+                if not allow:
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
+
+                sl = row["target_sl"]
+                notional_est = self._estimate_notional_for_scoring(current_balance, entry_price, sl, risk_mult)
+                estimated_cost = (notional_est * (0.0005 + self._slippage_rate_from_notional(notional_est)))
+                ema_distance = abs((entry_price - row["ema_trend"]) / row["ema_trend"]) if row["ema_trend"] else 0.0
+
+                signal_buffer.append({
+                    "row": row,
+                    "ts": ts,
+                    "symbol": symbol,
+                    "exec_tf": row.get("exec_tf", "4h"),
+                    "tf_min": TF_MINUTES.get(row.get("exec_tf", "4h"), 240),
+                    "strategy_used": strategy_used,
+                    "risk_mult": risk_mult,
+                    "eng_state_label": engine_states[strategy_used]["state"],
+                    "atr_ratio": atr / entry_price,
+                    "adx": row.get("adx", 0.0),
+                    "price_distance_from_ema": ema_distance,
+                    "estimated_cost": estimated_cost,
+                })
+
+            flush_cluster_metrics(symbols_at_ts)
+            if not signal_buffer:
                 continue
 
-            # ── Per-symbol cooldown (1 full 4H candle after any close) ──
-            cooldown_until = symbol_cooldown.get(symbol)
-            if cooldown_until is not None and ts < cooldown_until:
-                self.audit_metrics["rejected_symbol_cooldown_lock"] += 1
-                continue
+            self._score_signal_buffer(signal_buffer)
+            signal_buffer.sort(key=lambda s: (-s.get("score", 0.0), s["symbol"]))
 
-            # ── Per-symbol: only one open at a time ──
-            if any(p['symbol'] == symbol for p in open_positions):
-                self.audit_metrics["rejected_symbol_open_lock"] += 1
-                continue
+            for s in signal_buffer:
+                all_buffered_scores.append(s.get("score", 0.0))
 
-            # ── Governor ──
-            allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
-            if not allow:
-                self.audit_metrics["rejected_other"] += 1
-                continue
-            eng_state_label = engine_states[strategy_used]["state"]
-            sl           = row['target_sl']
-            tp1          = row['target_tp1']
-            tp2          = row['target_tp2']
-            regime       = row['regime']
-            volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
+            slots_available_start = max(0, MAX_CONCURRENT - len(open_positions))
+            executed_this_ts = 0
 
-            # ── Fixed Notional Cap with risk recomputation ──
-            effective_risk = RISK_PER_TRADE * risk_mult
-            price_risk     = abs(entry_price - sl)
-            if price_risk == 0:
-                self.audit_metrics["rejected_other"] += 1
-                continue
+            for candidate in signal_buffer:
+                row = candidate["row"]
+                symbol = candidate["symbol"]
+                score = candidate.get("score", 0.0)
+                ts = candidate["ts"]
+                exec_tf = candidate["exec_tf"]
+                tf_min = candidate["tf_min"]
+                strategy_used = candidate["strategy_used"]
+                risk_mult = candidate["risk_mult"]
+                eng_state_label = candidate["eng_state_label"]
 
-            risk_amount   = current_balance * effective_risk
-            position_size = risk_amount / price_risk
-            notional      = position_size * entry_price
+                cooldown_until = symbol_cooldown.get(symbol)
+                if cooldown_until is not None and ts < cooldown_until:
+                    self.audit_metrics["rejected_symbol_cooldown_lock"] += 1
+                    rejected_scores.append(score)
+                    continue
 
-            max_notional  = current_balance * MAX_NOTIONAL_MULT
-            if notional > max_notional:
-                notional      = max_notional
-                position_size = notional / entry_price
-                risk_amount   = position_size * price_risk   # adjusted downward
+                if any(p["symbol"] == symbol for p in open_positions):
+                    self.audit_metrics["rejected_symbol_open_lock"] += 1
+                    rejected_scores.append(score)
+                    continue
 
-            if notional == 0:
-                self.audit_metrics["rejected_other"] += 1
-                continue
-            margin_required = notional / 10.0
-            if margin_required > current_balance:
-                self.audit_metrics["rejected_other"] += 1
-                continue
+                if slots_available_start <= 0 or len(open_positions) >= MAX_CONCURRENT:
+                    self.audit_metrics["rejected_concurrency_lock"] += 1
+                    rejected_scores.append(score)
+                    continue
 
-            if not is_fee_viable(entry_price, sl, notional):
-                self.audit_metrics["rejected_other"] += 1
-                continue
+                if executed_this_ts >= slots_available_start:
+                    self.audit_metrics["rejected_low_priority"] += 1
+                    rejected_scores.append(score)
+                    continue
 
-            entry_fee_rate = 0.0005   # expansion = taker
-            slippage_rate  = self._slippage_rate_from_notional(notional)
+                sig_val = row["signal"]
+                entry_price = row["close"]
+                atr = row["atr"]
+                sl = row["target_sl"]
+                tp1 = row["target_tp1"]
+                tp2 = row["target_tp2"]
+                regime = row["regime"]
+                volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
-            # ── Forward-window simulation ──
-            key      = f"{symbol}_{exec_tf}"
-            idx_map  = self.price_data[key]['idx_map']
-            if ts not in idx_map: continue
-            idx_start    = idx_map[ts]
-            prices       = self.price_data[key]['prices']
-            end_idx      = min(idx_start + forward_window, len(prices))
-            slice_window = prices[idx_start + 1:end_idx]
+                effective_risk = RISK_PER_TRADE * risk_mult
+                price_risk = abs(entry_price - sl)
+                if price_risk == 0:
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
 
-            self.audit_metrics["total_signals_executed"] += 1
+                risk_amount = current_balance * effective_risk
+                position_size = risk_amount / price_risk
+                notional = position_size * entry_price
 
-            outcome            = 0
-            duration           = 0
-            gross_pnl          = 0.0
-            fees_paid          = notional * entry_fee_rate
-            slippage_paid      = notional * slippage_rate
-            exit_timestamp     = ts
-            remaining_notional = notional
-            current_sl         = sl
-            final_exit_price   = entry_price
-            tp1_hit            = False
-            using_ema_trail    = (tp2 == 0)
+                max_notional = current_balance * MAX_NOTIONAL_MULT
+                if notional > max_notional:
+                    notional = max_notional
+                    position_size = notional / entry_price
 
-            for j, f_row in enumerate(slice_window):
-                f_high  = f_row[1]; f_low   = f_row[2]
-                f_close = f_row[3]; f_ema24 = f_row[5]; f_ts = f_row[6]
+                if notional == 0:
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
 
-                if sig_val == 1:
-                    if f_low <= current_sl:
-                        outcome = 0 if not tp1_hit else 1
-                        raw_pct = (current_sl - entry_price) / entry_price
-                        gross_pnl += raw_pct * remaining_notional
-                        fees_paid += remaining_notional * entry_fee_rate
-                        slippage_paid += remaining_notional * slippage_rate
-                        remaining_notional = 0
-                        duration = (j + 1) * tf_min
-                        exit_timestamp = f_ts; final_exit_price = current_sl; break
+                margin_required = notional / 10.0
+                if margin_required > current_balance:
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
 
-                    if not tp1_hit and f_high >= tp1:
-                        tp1_hit = True
-                        tranche = notional * 0.5
-                        raw_pct = (tp1 - entry_price) / entry_price
-                        gross_pnl += raw_pct * tranche
-                        fees_paid += tranche * entry_fee_rate
-                        slippage_paid += tranche * slippage_rate
-                        remaining_notional -= tranche
-                        current_sl = entry_price * (1.0 + entry_fee_rate + slippage_rate)
+                if not is_fee_viable(entry_price, sl, notional):
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
 
-                    if tp1_hit and using_ema_trail:
-                        if f_close < f_ema24:
-                            outcome = 1
-                            raw_pct = (f_close - entry_price) / entry_price
+                entry_fee_rate = 0.0005
+                slippage_rate = self._slippage_rate_from_notional(notional)
+
+                key = f"{symbol}_{exec_tf}"
+                idx_map = self.price_data[key]["idx_map"]
+                if ts not in idx_map:
+                    self.audit_metrics["rejected_other"] += 1
+                    continue
+
+                idx_start = idx_map[ts]
+                prices = self.price_data[key]["prices"]
+                end_idx = min(idx_start + forward_window, len(prices))
+                slice_window = prices[idx_start + 1:end_idx]
+
+                self.audit_metrics["total_signals_executed"] += 1
+                executed_this_ts += 1
+                executed_scores.append(score)
+
+                outcome = 0
+                duration = 0
+                gross_pnl = 0.0
+                fees_paid = notional * entry_fee_rate
+                slippage_paid = notional * slippage_rate
+                exit_timestamp = ts
+                remaining_notional = notional
+                current_sl = sl
+                final_exit_price = entry_price
+                tp1_hit = False
+                using_ema_trail = (tp2 == 0)
+
+                for j, f_row in enumerate(slice_window):
+                    f_high = f_row[1]; f_low = f_row[2]
+                    f_close = f_row[3]; f_ema24 = f_row[5]; f_ts = f_row[6]
+
+                    if sig_val == 1:
+                        if f_low <= current_sl:
+                            outcome = 0 if not tp1_hit else 1
+                            raw_pct = (current_sl - entry_price) / entry_price
                             gross_pnl += raw_pct * remaining_notional
                             fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
                             duration = (j + 1) * tf_min
-                            exit_timestamp = f_ts; final_exit_price = f_close; break
-                    elif tp1_hit:
-                        if f_high >= tp2:
-                            outcome = 2
-                            raw_pct = (tp2 - entry_price) / entry_price
+                            exit_timestamp = f_ts; final_exit_price = current_sl; break
+
+                        if not tp1_hit and f_high >= tp1:
+                            tp1_hit = True
+                            tranche = notional * 0.5
+                            raw_pct = (tp1 - entry_price) / entry_price
+                            gross_pnl += raw_pct * tranche
+                            fees_paid += tranche * entry_fee_rate
+                            slippage_paid += tranche * slippage_rate
+                            remaining_notional -= tranche
+                            current_sl = entry_price * (1.0 + entry_fee_rate + slippage_rate)
+
+                        if tp1_hit and using_ema_trail:
+                            if f_close < f_ema24:
+                                outcome = 1
+                                raw_pct = (f_close - entry_price) / entry_price
+                                gross_pnl += raw_pct * remaining_notional
+                                fees_paid += remaining_notional * entry_fee_rate
+                                slippage_paid += remaining_notional * slippage_rate
+                                remaining_notional = 0
+                                duration = (j + 1) * tf_min
+                                exit_timestamp = f_ts; final_exit_price = f_close; break
+                        elif tp1_hit:
+                            if f_high >= tp2:
+                                outcome = 2
+                                raw_pct = (tp2 - entry_price) / entry_price
+                                gross_pnl += raw_pct * remaining_notional
+                                fees_paid += remaining_notional * entry_fee_rate
+                                slippage_paid += remaining_notional * slippage_rate
+                                remaining_notional = 0
+                                duration = (j + 1) * tf_min
+                                exit_timestamp = f_ts; final_exit_price = tp2; break
+
+                    else:
+                        if f_high >= current_sl:
+                            outcome = 0 if not tp1_hit else 1
+                            raw_pct = (entry_price - current_sl) / entry_price
                             gross_pnl += raw_pct * remaining_notional
                             fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
                             duration = (j + 1) * tf_min
-                            exit_timestamp = f_ts; final_exit_price = tp2; break
+                            exit_timestamp = f_ts; final_exit_price = current_sl; break
 
-                else:
-                    if f_high >= current_sl:
-                        outcome = 0 if not tp1_hit else 1
-                        raw_pct = (entry_price - current_sl) / entry_price
-                        gross_pnl += raw_pct * remaining_notional
-                        fees_paid += remaining_notional * entry_fee_rate
-                        slippage_paid += remaining_notional * slippage_rate
-                        remaining_notional = 0
-                        duration = (j + 1) * tf_min
-                        exit_timestamp = f_ts; final_exit_price = current_sl; break
+                        if not tp1_hit and f_low <= tp1:
+                            tp1_hit = True
+                            tranche = notional * 0.5
+                            raw_pct = (entry_price - tp1) / entry_price
+                            gross_pnl += raw_pct * tranche
+                            fees_paid += tranche * entry_fee_rate
+                            slippage_paid += tranche * slippage_rate
+                            remaining_notional -= tranche
+                            current_sl = entry_price * (1.0 - (entry_fee_rate + slippage_rate))
 
-                    if not tp1_hit and f_low <= tp1:
-                        tp1_hit = True
-                        tranche = notional * 0.5
-                        raw_pct = (entry_price - tp1) / entry_price
-                        gross_pnl += raw_pct * tranche
-                        fees_paid += tranche * entry_fee_rate
-                        slippage_paid += tranche * slippage_rate
-                        remaining_notional -= tranche
-                        current_sl = entry_price * (1.0 - (entry_fee_rate + slippage_rate))
+                        if tp1_hit and using_ema_trail:
+                            if f_close > f_ema24:
+                                outcome = 1
+                                raw_pct = (entry_price - f_close) / entry_price
+                                gross_pnl += raw_pct * remaining_notional
+                                fees_paid += remaining_notional * entry_fee_rate
+                                slippage_paid += remaining_notional * slippage_rate
+                                remaining_notional = 0
+                                duration = (j + 1) * tf_min
+                                exit_timestamp = f_ts; final_exit_price = f_close; break
+                        elif tp1_hit:
+                            if f_low <= tp2:
+                                outcome = 2
+                                raw_pct = (entry_price - tp2) / entry_price
+                                gross_pnl += raw_pct * remaining_notional
+                                fees_paid += remaining_notional * entry_fee_rate
+                                slippage_paid += remaining_notional * slippage_rate
+                                remaining_notional = 0
+                                duration = (j + 1) * tf_min
+                                exit_timestamp = f_ts; final_exit_price = tp2; break
 
-                    if tp1_hit and using_ema_trail:
-                        if f_close > f_ema24:
-                            outcome = 1
-                            raw_pct = (entry_price - f_close) / entry_price
-                            gross_pnl += raw_pct * remaining_notional
-                            fees_paid += remaining_notional * entry_fee_rate
-                            slippage_paid += remaining_notional * slippage_rate
-                            remaining_notional = 0
-                            duration = (j + 1) * tf_min
-                            exit_timestamp = f_ts; final_exit_price = f_close; break
-                    elif tp1_hit:
-                        if f_low <= tp2:
-                            outcome = 2
-                            raw_pct = (entry_price - tp2) / entry_price
-                            gross_pnl += raw_pct * remaining_notional
-                            fees_paid += remaining_notional * entry_fee_rate
-                            slippage_paid += remaining_notional * slippage_rate
-                            remaining_notional = 0
-                            duration = (j + 1) * tf_min
-                            exit_timestamp = f_ts; final_exit_price = tp2; break
+                if remaining_notional > 0:
+                    end_row = slice_window[-1] if len(slice_window) > 0 else None
+                    if end_row is not None:
+                        f_close = end_row[3]; f_ts = end_row[6]
+                    else:
+                        f_close = entry_price; f_ts = ts
+                    outcome = 3
+                    raw_pct = (f_close - entry_price) / entry_price if sig_val == 1 else (entry_price - f_close) / entry_price
+                    gross_pnl += raw_pct * remaining_notional
+                    fees_paid += remaining_notional * entry_fee_rate
+                    slippage_paid += remaining_notional * slippage_rate
+                    exit_timestamp = f_ts; final_exit_price = f_close
+                    duration = min((j + 1) * tf_min, forward_window * tf_min) if len(slice_window) > 0 else 0
 
-            # Time-expired
-            if remaining_notional > 0:
-                end_row = slice_window[-1] if len(slice_window) > 0 else None
-                if end_row is not None:
-                    f_close = end_row[3]; f_ts = end_row[6]
-                else:
-                    f_close = entry_price; f_ts = ts
-                outcome  = 3
-                raw_pct  = (f_close - entry_price) / entry_price if sig_val == 1 else (entry_price - f_close) / entry_price
-                gross_pnl += raw_pct * remaining_notional
-                fees_paid += remaining_notional * entry_fee_rate
-                slippage_paid += remaining_notional * slippage_rate
-                exit_timestamp = f_ts; final_exit_price = f_close
-                duration = min((j + 1) * tf_min, forward_window * tf_min) if len(slice_window) > 0 else 0
+                net_pnl = gross_pnl - fees_paid - slippage_paid
+                current_balance += net_pnl
+                risk_engine.update_pnl(net_pnl)
+                record_trade(engine_states[strategy_used], net_pnl)
 
-            net_pnl          = gross_pnl - fees_paid - slippage_paid
-            current_balance += net_pnl
-            risk_engine.update_pnl(net_pnl)
-            record_trade(engine_states[strategy_used], net_pnl)
+                open_positions.append({
+                    "exit_time": exit_timestamp,
+                    "symbol": symbol,
+                    "margin": margin_required,
+                    "net_pnl": net_pnl,
+                })
+                symbol_cooldown[symbol] = exit_timestamp + timedelta(minutes=240)
 
-            # Register position with close-time PnL for daily DD tracking
-            open_positions.append({
-                "exit_time": exit_timestamp,
-                "symbol":    symbol,
-                "margin":    margin_required,
-                "net_pnl":   net_pnl,
-            })
+                ts_iso = ts.isoformat()
+                signal_type = "BUY" if sig_val == 1 else "SELL"
+                ema_dist = (row["ema_fast"] - row["ema_slow"]) / row["ema_slow"]
+                ema200_dist = (entry_price - row["ema_trend"]) / row["ema_trend"]
+                saved_tp2 = tp2 if tp2 != 0 else final_exit_price
 
-            # Symbol cooldown: block this symbol for 1 full 4H candle after close
-            symbol_cooldown[symbol] = exit_timestamp + timedelta(minutes=240)
+                outcomes.append((
+                    ts_iso, symbol, exec_tf, regime, strategy_used, eng_state_label,
+                    signal_type,
+                    float(entry_price), float(saved_tp2), float(current_sl), float(final_exit_price), int(outcome),
+                    int(duration), float(row["rsi"]), float(row["adx"]), float(atr),
+                    float(ema_dist), float(ema200_dist), volat_regime, ts.hour, ts.dayofweek,
+                    float(row.get("context_score", 0)), float(notional), float(margin_required),
+                    float(fees_paid), float(slippage_paid), float(net_pnl), float(current_balance)
+                ))
 
-            # Log
-            ts_iso      = ts.isoformat()
-            signal_type = "BUY" if sig_val == 1 else "SELL"
-            ema_dist    = (row['ema_fast'] - row['ema_slow']) / row['ema_slow']
-            ema200_dist = (entry_price - row['ema_trend']) / row['ema_trend']
-            saved_tp2   = tp2 if tp2 != 0 else final_exit_price
-
-            outcomes.append((
-                ts_iso, symbol, exec_tf, regime, strategy_used, eng_state_label,
-                signal_type,
-                float(entry_price), float(saved_tp2), float(current_sl), float(final_exit_price), int(outcome),
-                int(duration), float(row['rsi']), float(row['adx']), float(atr),
-                float(ema_dist), float(ema200_dist), volat_regime, ts.hour, ts.dayofweek,
-                float(row.get('context_score', 0)), float(notional), float(margin_required),
-                float(fees_paid), float(slippage_paid), float(net_pnl), float(current_balance)
-            ))
-
-        flush_cluster_metrics()
-
-        total_rejected = (
+        total_locks = (
             self.audit_metrics["rejected_concurrency_lock"]
             + self.audit_metrics["rejected_symbol_open_lock"]
             + self.audit_metrics["rejected_symbol_cooldown_lock"]
         )
+        self.audit_metrics["rejected_locks"] = total_locks
+        total_rejected = total_locks + self.audit_metrics["rejected_low_priority"]
         self.audit_metrics["rejected_signals"] = total_rejected
+
         generated = self.audit_metrics["total_signals_generated"]
         self.audit_metrics["duplicate_signal_rejection_rate"] = (
             total_rejected / generated if generated else 0.0
         )
+
+        self.audit_metrics["avg_executed_score"] = (
+            sum(executed_scores) / len(executed_scores) if executed_scores else 0.0
+        )
+        self.audit_metrics["avg_rejected_score"] = (
+            sum(rejected_scores) / len(rejected_scores) if rejected_scores else 0.0
+        )
+        self.audit_metrics["avg_all_signal_score"] = (
+            sum(all_buffered_scores) / len(all_buffered_scores) if all_buffered_scores else 0.0
+        )
+        avg_all = self.audit_metrics["avg_all_signal_score"]
+        self.audit_metrics["selection_quality_ratio"] = (
+            self.audit_metrics["avg_executed_score"] / avg_all if avg_all else 0.0
+        )
+
         cluster_count = self.audit_metrics["cluster_event_count"]
         self.audit_metrics["cluster_event_avg_size"] = (
             self.audit_metrics["cluster_event_total_size"] / cluster_count if cluster_count else 0.0
@@ -557,29 +669,37 @@ class HistoricalSimulator:
         )
         self.audit_metrics["final_balance"] = current_balance
 
-        # Engine summary
         if gov_log:
             print("\n[GOVERNANCE LOG]")
             seen = {}
             for line in gov_log:
                 for eng in ENGINE_PRIORITY:
-                    if eng in line: seen[eng] = line
-            for eng, line in seen.items(): print(f"  {line}")
+                    if eng in line:
+                        seen[eng] = line
+            for eng, line in seen.items():
+                print(f"  {line}")
 
         print("\n[ENGINE FINAL STATES]")
         for eng in ENGINE_PRIORITY:
-            es = engine_states[eng]; pf = get_pf(es)
-            ra = es['recovery_attempts']; rs = es['recovery_successes']
+            es = engine_states[eng]
+            pf = get_pf(es)
+            ra = es["recovery_attempts"]
+            rs = es["recovery_successes"]
             print(f"  {eng}: state={es['state']} | trades={es['trades']} | PF={pf:.2f} "
                   f"| active={es['ticks_active']} cd={es['ticks_cooldown']} rec={es['ticks_recovery']} "
                   f"| recovery={rs}/{ra if ra>0 else 'N/A'}")
 
         print(f"\n[DAILY DD] Total breach days: {self.daily_dd_breaches}")
-        print("\n[PHASE 6.1 AUDIT]")
+        print("\n[PHASE 6.2 AUDIT]")
         print(f"  Generated signals: {self.audit_metrics['total_signals_generated']}")
         print(f"  Executed signals : {self.audit_metrics['total_signals_executed']}")
-        print(f"  Rejected (locks) : {self.audit_metrics['rejected_signals']}")
+        print(f"  Rejected (total) : {self.audit_metrics['rejected_signals']}")
+        print(f"  Rejected (locks) : {self.audit_metrics['rejected_locks']}")
+        print(f"  Rejected (low pr): {self.audit_metrics['rejected_low_priority']}")
         print(f"  Dup reject rate  : {self.audit_metrics['duplicate_signal_rejection_rate']:.2%}")
+        print(f"  Avg exec score   : {self.audit_metrics['avg_executed_score']:.4f}")
+        print(f"  Avg rej score    : {self.audit_metrics['avg_rejected_score']:.4f}")
+        print(f"  Selection quality: {self.audit_metrics['selection_quality_ratio']:.4f}")
         print(f"  Cluster events   : {self.audit_metrics['cluster_event_count']}")
         print(f"  Avg cluster size : {self.audit_metrics['cluster_event_avg_size']:.2f}")
         return outcomes

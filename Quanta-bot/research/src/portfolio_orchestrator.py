@@ -9,7 +9,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from research.src.historical_simulator import HistoricalSimulator
-from research.src.capacity_correlation_audit import write_phase61_scaling_report
+from research.src.capacity_correlation_audit import write_phase61_scaling_report, write_phase62_scaling_report
 
 def get_next_version(base_dir, prefix="v"):
     """
@@ -96,9 +96,15 @@ def run_portfolio_orchestrator():
     duration = time.time() - start_time
     print(f"\n[ORCHESTRATOR] SIMULATION COMPLETE | Duration: {duration:.2f}s")
 
-    report_paths = write_phase61_scaling_report(tier_results, ver_dir)
+    report_paths_61 = write_phase61_scaling_report(tier_results, ver_dir)
+    report_paths_62 = write_phase62_scaling_report(tier_results, ver_dir)
+
     print("[ORCHESTRATOR] Phase 6.1 artifacts generated:")
-    for k, v in report_paths.items():
+    for k, v in report_paths_61.items():
+        print(f"  - {k}: {v}")
+
+    print("[ORCHESTRATOR] Phase 6.2 artifacts generated:")
+    for k, v in report_paths_62.items():
         print(f"  - {k}: {v}")
 
 if __name__ == "__main__":
