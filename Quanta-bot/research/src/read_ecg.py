@@ -89,6 +89,14 @@ def generate_ecg_report(db_path):
     else:
         print(" (engine_state column not available in this dataset)")
 
+    print("-------------------------------------------------")
+    print(" [PER-TIMEFRAME BREAKDOWN]")
+    if 'interval' in df.columns:
+        for tf, grp in df.groupby('interval'):
+            tt = len(grp)
+            tn = grp['net_pnl_usd'].sum()
+            tw = len(grp[grp['outcome'] > 0])
+            print(f" * {tf}: {tt} trades | WR: {tw/tt*100:.1f}% | PnL: ${tn:.2f}")
     print("=================================================")
     if not (is_pf_ok and is_dd_ok and is_vol_ok):
         print("[FAIL SAFE] SYSTEM REQUIREMENTS NOT MET")
@@ -98,5 +106,5 @@ def generate_ecg_report(db_path):
 
 if __name__ == "__main__":
     generate_ecg_report(
-        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v14/portfolio_results.sqlite"
+        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v15/portfolio_results.sqlite"
     )
