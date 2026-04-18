@@ -34,6 +34,9 @@ def generate_ecg_report(db_path):
     pos_sum = df[df['net_pnl_usd'] > 0]['net_pnl_usd'].sum()
     neg_sum = abs(df[df['net_pnl_usd'] <= 0]['net_pnl_usd'].sum())
     pf      = pos_sum / neg_sum if neg_sum > 0 else float('inf')
+    max_win = df['net_pnl_usd'].max()
+    avg_win = df[df['net_pnl_usd'] > 0]['net_pnl_usd'].mean()
+    avg_loss = df[df['net_pnl_usd'] <= 0]['net_pnl_usd'].mean()
 
     is_pf_ok  = pf >= 1.15
     is_dd_ok  = abs(max_dd) <= 12.0
@@ -48,6 +51,8 @@ def generate_ecg_report(db_path):
     print(f" Profit Factor  : {pf:.3f} (>= 1.15: {'Y' if is_pf_ok else 'N'})")
     print(f" Net PnL        : ${net_pnl:.2f} ({net_pnl_pct:.2f}%)")
     print(f" Max Drawdown   : {max_dd:.2f}% (<= 12%: {'Y' if is_dd_ok else 'N'})")
+    print(f" Max Win Trade  : ${max_win:.2f}")
+    print(f" Avg Win / Loss : ${avg_win:.2f} / ${avg_loss:.2f}")
     print("-------------------------------------------------")
 
     print(" [PER-STRATEGY METRICS]")
@@ -93,5 +98,5 @@ def generate_ecg_report(db_path):
 
 if __name__ == "__main__":
     generate_ecg_report(
-        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v12/portfolio_results.sqlite"
+        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v14/portfolio_results.sqlite"
     )

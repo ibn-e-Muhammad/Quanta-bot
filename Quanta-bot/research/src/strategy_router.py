@@ -1,12 +1,10 @@
 def route_signal(regime):
     """
-    Maps structural regimes definitively to corresponding execution engines objectively.
+    Phase 5.4 — Expansion Only.
+    All non-EXPANSION regimes produce no trade.
+    Breakout and mean_reversion remain permanently culled.
     """
-    if regime == "TRENDING":
-        return "breakout_engine"
-    elif regime == "CHOPPY":
-        return "mean_reversion_engine"
-    elif regime == "EXPANSION":
+    if regime == "EXPANSION":
         return "expansion_engine"
-    
+
     return "none_engine"

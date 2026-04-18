@@ -305,7 +305,7 @@ class HistoricalSimulator:
             volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
             # Risk amount is dynamic based on governor state
-            effective_risk = BASE_RISK * risk_mult
+            effective_risk = 0.015 * risk_mult  # Phase 5.4: 1.5% base risk
             notional = risk_engine.calculate_position_size(
                 current_balance, effective_risk, entry_price, sl, atr
             )
@@ -352,7 +352,11 @@ class HistoricalSimulator:
                 f_high  = f_row[1]
                 f_low   = f_row[2]
                 f_close = f_row[3]
+                f_ema24 = f_row[5]   # ema_slow = EMA 24
                 f_ts    = f_row[6]
+
+                # Determine if this is a fat-tail runner (tp2==0 sentinel)
+                using_ema_trail = (tp2 == 0)
 
                 if sig_val == 1:
                     if f_low <= current_sl:
@@ -375,19 +379,34 @@ class HistoricalSimulator:
                         fees_paid      += tranche * entry_fee_rate
                         slippage_paid  += tranche * slippage_rate
                         remaining_notional -= tranche
+                        # Fee-adjusted breakeven for runner tranche
                         current_sl = entry_price * (1.0 + entry_fee_rate + slippage_rate)
 
-                    if f_high >= tp2:
-                        outcome = 2
-                        raw_pct = (tp2 - entry_price) / entry_price
-                        gross_pnl      += raw_pct * remaining_notional
-                        fees_paid      += remaining_notional * entry_fee_rate
-                        slippage_paid  += remaining_notional * slippage_rate
-                        remaining_notional = 0
-                        duration = (j + 1) * 60
-                        exit_timestamp   = f_ts
-                        final_exit_price = tp2
-                        break
+                    # After TP1: fat-tail runner uses EMA-24 trailing close stop
+                    if tp1_hit and using_ema_trail:
+                        if f_close < f_ema24:  # Close below EMA 24 → exit runner
+                            outcome = 1
+                            raw_pct = (f_close - entry_price) / entry_price
+                            gross_pnl      += raw_pct * remaining_notional
+                            fees_paid      += remaining_notional * entry_fee_rate
+                            slippage_paid  += remaining_notional * slippage_rate
+                            remaining_notional = 0
+                            duration = (j + 1) * 60
+                            exit_timestamp   = f_ts
+                            final_exit_price = f_close
+                            break
+                    elif tp1_hit and not using_ema_trail:
+                        if f_high >= tp2:
+                            outcome = 2
+                            raw_pct = (tp2 - entry_price) / entry_price
+                            gross_pnl      += raw_pct * remaining_notional
+                            fees_paid      += remaining_notional * entry_fee_rate
+                            slippage_paid  += remaining_notional * slippage_rate
+                            remaining_notional = 0
+                            duration = (j + 1) * 60
+                            exit_timestamp   = f_ts
+                            final_exit_price = tp2
+                            break
 
                 else:  # SHORT
                     if f_high >= current_sl:
@@ -412,17 +431,31 @@ class HistoricalSimulator:
                         remaining_notional -= tranche
                         current_sl = entry_price * (1.0 - (entry_fee_rate + slippage_rate))
 
-                    if f_low <= tp2:
-                        outcome = 2
-                        raw_pct = (entry_price - tp2) / entry_price
-                        gross_pnl      += raw_pct * remaining_notional
-                        fees_paid      += remaining_notional * entry_fee_rate
-                        slippage_paid  += remaining_notional * slippage_rate
-                        remaining_notional = 0
-                        duration = (j + 1) * 60
-                        exit_timestamp   = f_ts
-                        final_exit_price = tp2
-                        break
+                    # After TP1: fat-tail runner uses EMA-24 trailing close stop
+                    if tp1_hit and using_ema_trail:
+                        if f_close > f_ema24:  # Close above EMA 24 → exit runner
+                            outcome = 1
+                            raw_pct = (entry_price - f_close) / entry_price
+                            gross_pnl      += raw_pct * remaining_notional
+                            fees_paid      += remaining_notional * entry_fee_rate
+                            slippage_paid  += remaining_notional * slippage_rate
+                            remaining_notional = 0
+                            duration = (j + 1) * 60
+                            exit_timestamp   = f_ts
+                            final_exit_price = f_close
+                            break
+                    elif tp1_hit and not using_ema_trail:
+                        if f_low <= tp2:
+                            outcome = 2
+                            raw_pct = (entry_price - tp2) / entry_price
+                            gross_pnl      += raw_pct * remaining_notional
+                            fees_paid      += remaining_notional * entry_fee_rate
+                            slippage_paid  += remaining_notional * slippage_rate
+                            remaining_notional = 0
+                            duration = (j + 1) * 60
+                            exit_timestamp   = f_ts
+                            final_exit_price = tp2
+                            break
 
             # Time-expired close
             if remaining_notional > 0:
