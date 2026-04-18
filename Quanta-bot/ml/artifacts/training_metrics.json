@@ -1,0 +1,8 @@
+{
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "roc_auc": 1.0,
+  "train_rows": 360,
+  "test_rows": 155
+}

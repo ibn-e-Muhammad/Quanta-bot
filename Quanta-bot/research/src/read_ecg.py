@@ -97,6 +97,27 @@ def _load_phase62_for_db(db_path, matrix_map):
     return matrix_map.get(_infer_tier_name(db_path), {})
 
 
+def _load_phase7_matrix(folder):
+    matrix_path = folder / "phase7_scaling_matrix.json"
+    data = _load_json(matrix_path)
+    out = {}
+    if isinstance(data, list):
+        for row in data:
+            if isinstance(row, dict):
+                tier_name = str(row.get("tier_name", "")).upper().strip()
+                if tier_name:
+                    out[tier_name] = row
+    return out
+
+
+def _load_phase7_for_db(db_path, matrix_map):
+    audit_path = db_path.with_name(f"{db_path.stem}_phase7_audit.json")
+    audit = _load_json(audit_path)
+    if isinstance(audit, dict):
+        return audit
+    return matrix_map.get(_infer_tier_name(db_path), {})
+
+
 def _read_trades(db_path):
     conn = sqlite3.connect(str(db_path))
     try:
@@ -133,7 +154,7 @@ def _fmt_pf(v):
     return "inf" if np.isinf(v) else f"{v:.3f}"
 
 
-def _print_single_report(db_path, df, phase61, phase62, print_report=True):
+def _print_single_report(db_path, df, phase61, phase62, phase7, print_report=True):
     tier_name = _infer_tier_name(db_path)
     initial_balance = _infer_initial_balance(df, phase61)
 
@@ -257,6 +278,15 @@ def _print_single_report(db_path, df, phase61, phase62, print_report=True):
             low_pct = (rej_low / rej_total * 100.0) if rej_total else 0.0
             print(f" Rejection Breakdown: LOCKS={rej_locks} ({lock_pct:.2f}%) | LOW_PRIORITY={rej_low} ({low_pct:.2f}%)")
 
+        if phase7:
+            print("-------------------------------------------------")
+            print(" [PHASE 7 ML METRICS]")
+            print(f" Avg ML Score (Executed): {phase7.get('avg_ml_score_executed', 0.0):.4f}")
+            print(f" Avg ML Score (Rejected): {phase7.get('avg_ml_score_rejected', 0.0):.4f}")
+            print(f" ML Acceptance Rate     : {phase7.get('ml_acceptance_rate', 0.0) * 100.0:.2f}%")
+            print(f" ML Filtered Trades     : {phase7.get('ml_filtered_trades', 0)}")
+            print(f" ML Fallback Count      : {phase7.get('ml_fallback_count', 0)}")
+
         print("=================================================")
         passed = is_pf_ok and is_dd_ok and is_vol_ok
         if passed:
@@ -297,6 +327,7 @@ def generate_ecg_report(db_path=None):
     folder = target if target.is_dir() else target.parent
     matrix_map = _load_phase61_matrix(folder)
     matrix62_map = _load_phase62_matrix(folder)
+    matrix7_map = _load_phase7_matrix(folder)
     summary_rows = []
 
     for db in sqlite_files:
@@ -311,7 +342,8 @@ def generate_ecg_report(db_path=None):
 
         phase61 = _load_phase61_for_db(db, matrix_map)
         phase62 = _load_phase62_for_db(db, matrix62_map)
-        summary_rows.append(_print_single_report(db, df, phase61, phase62, print_report=True))
+        phase7 = _load_phase7_for_db(db, matrix7_map)
+        summary_rows.append(_print_single_report(db, df, phase61, phase62, phase7, print_report=True))
 
     if summary_rows:
         print("=================================================")
@@ -326,11 +358,12 @@ def generate_ecg_report(db_path=None):
             )
         print()
 
-        if target.is_dir() and target.name.lower() != "v19":
-            baseline_dir = target.parent / "v19"
+        if target.is_dir() and target.name.lower() != "v24":
+            baseline_dir = target.parent / "v24"
             if baseline_dir.exists() and baseline_dir.is_dir():
                 base_phase61 = _load_phase61_matrix(baseline_dir)
                 base_phase62 = _load_phase62_matrix(baseline_dir)
+                _ = baseline_dir / "phase62_scaling_matrix.json"
                 base_rows = {}
                 for db in sorted(baseline_dir.glob("*.sqlite")):
                     try:
@@ -339,14 +372,14 @@ def generate_ecg_report(db_path=None):
                             continue
                         b61 = _load_phase61_for_db(db, base_phase61)
                         b62 = _load_phase62_for_db(db, base_phase62)
-                        bro = _print_single_report(db, bdf, b61, b62, print_report=False)
+                        bro = _print_single_report(db, bdf, b61, b62, {}, print_report=False)
                         base_rows[bro["tier"]] = bro
                     except Exception:
                         continue
 
                 if base_rows:
                     print("=================================================")
-                    print(" [DELTA VS V19]")
+                    print(" [ML IMPACT VS V24 PHASE62 BASELINE]")
                     print("=================================================")
                     print(f"{'Tier':<12} {'ΔPF':>10} {'ΔNetPnL%':>12} {'ΔMaxDD%':>10}")
                     print("-" * 50)

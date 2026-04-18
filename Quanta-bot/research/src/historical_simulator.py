@@ -28,6 +28,11 @@ from research.src.engine_governor import (
     initial_state, tick_state, record_trade, get_pf,
     ENGINE_PRIORITY
 )
+from ml.model_inference import (
+    predict_trade_quality,
+    get_ml_runtime_metrics,
+    reset_ml_runtime_metrics,
+)
 
 # ── Phase 6 Configuration ──────────────────────────────────────────────
 EXEC_TIMEFRAMES     = ["4h"]
@@ -40,6 +45,7 @@ MAX_CONCURRENT      = 2          # strict prop-firm concurrency
 DAILY_DD_CAP        = -0.015     # -1.5% daily realized DD lock
 MAX_NOTIONAL_MULT   = 5.0
 ATR_MIN_RATIO       = 0.003      # atr/price must exceed this (anti-fee-trap)
+ML_THRESHOLD        = 0.55
 
 
 class HistoricalSimulator:
@@ -60,6 +66,7 @@ class HistoricalSimulator:
         self.filter_stats = {}
         self.daily_dd_breaches = 0
         self.initial_balance = float(self.config_override.get("initial_balance", 10000.0))
+        self.ml_threshold = float(self.config_override.get("ml_threshold", ML_THRESHOLD))
         self.audit_metrics = self._init_audit_metrics()
 
         self.setup_db()
@@ -82,6 +89,16 @@ class HistoricalSimulator:
             "avg_rejected_score": 0.0,
             "avg_all_signal_score": 0.0,
             "selection_quality_ratio": 0.0,
+            "ml_filtered_trades": 0,
+            "ml_candidates_scored": 0,
+            "avg_ml_score_executed": 0.0,
+            "avg_ml_score_rejected": 0.0,
+            "ml_acceptance_rate": 0.0,
+            "ml_fallback_count": 0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "net_pnl_pct": 0.0,
+            "max_drawdown_pct": 0.0,
             "cluster_event_count": 0,
             "cluster_event_total_size": 0,
             "cluster_event_avg_size": 0.0,
@@ -246,6 +263,7 @@ class HistoricalSimulator:
     # ── Portfolio run ──────────────────────────────────────────────────
     def run_portfolio_simulation(self, watchlist):
         self.audit_metrics = self._init_audit_metrics()
+        reset_ml_runtime_metrics()
         self.price_data = {}
         all_signals     = []
 
@@ -281,6 +299,9 @@ class HistoricalSimulator:
             phase62_audit_path = db_file.with_name(f"{db_file.stem}_phase62_audit.json")
             with open(phase62_audit_path, "w", encoding="utf-8") as f:
                 json.dump(self.audit_metrics, f, indent=2)
+            phase7_audit_path = db_file.with_name(f"{db_file.stem}_phase7_audit.json")
+            with open(phase7_audit_path, "w", encoding="utf-8") as f:
+                json.dump(self.audit_metrics, f, indent=2)
 
         return {
             "db_path": self.db_path,
@@ -306,6 +327,8 @@ class HistoricalSimulator:
         executed_scores = []
         rejected_scores = []
         all_buffered_scores = []
+        ml_executed_probs = []
+        ml_rejected_probs = []
 
         def flush_cluster_metrics(symbols_at_ts):
             if len(symbols_at_ts) < 2:
@@ -371,7 +394,7 @@ class HistoricalSimulator:
 
                 sl = row["target_sl"]
                 notional_est = self._estimate_notional_for_scoring(current_balance, entry_price, sl, risk_mult)
-                estimated_cost = (notional_est * (0.0005 + self._slippage_rate_from_notional(notional_est)))
+                estimated_cost = (0.0005 + self._slippage_rate_from_notional(notional_est))
                 ema_distance = abs((entry_price - row["ema_trend"]) / row["ema_trend"]) if row["ema_trend"] else 0.0
 
                 signal_buffer.append({
@@ -433,6 +456,45 @@ class HistoricalSimulator:
                     self.audit_metrics["rejected_low_priority"] += 1
                     rejected_scores.append(score)
                     continue
+
+                ema_trend_val = float(row.get("ema_trend", 0.0) or 0.0)
+                close_val = float(row.get("close", 0.0) or 0.0)
+                ema_distance = abs((close_val - ema_trend_val) / ema_trend_val) if ema_trend_val else 0.0
+                candle_range = abs(close_val - float(row.get("target_sl", close_val))) / close_val if close_val else 0.0
+                ema_slow_val = float(row.get("ema_slow", 0.0) or 0.0)
+                ema_fast_val = float(row.get("ema_fast", 0.0) or 0.0)
+                trend_strength = abs((ema_fast_val - ema_slow_val) / ema_slow_val) if ema_slow_val else 0.0
+                atr_ratio_live = (float(row.get("atr", 0.0)) / close_val) if close_val else 0.0
+                if atr_ratio_live < 0.008:
+                    volatility_regime = 0.0
+                elif atr_ratio_live < 0.02:
+                    volatility_regime = 1.0
+                else:
+                    volatility_regime = 2.0
+
+                ml_features = {
+                    "trade_direction": 1.0 if row.get("signal") == 1 else -1.0,
+                    "score": float(score),
+                    "atr_value": float(row.get("atr", 0.0)),
+                    "adx_value": float(row.get("adx", 0.0)),
+                    "ema_distance": float(ema_distance),
+                    "cost_estimate": float(candidate.get("estimated_cost", 0.0)),
+                    "volatility_regime": volatility_regime,
+                    "candle_range": float(candle_range),
+                    "trend_strength": float(trend_strength),
+                    "hour_of_day": float(ts.hour),
+                    "day_of_week": float(ts.dayofweek),
+                }
+                ml_prob = predict_trade_quality(ml_features)
+                self.audit_metrics["ml_candidates_scored"] += 1
+
+                if ml_prob < self.ml_threshold:
+                    self.audit_metrics["ml_filtered_trades"] += 1
+                    rejected_scores.append(score)
+                    ml_rejected_probs.append(ml_prob)
+                    continue
+
+                ml_executed_probs.append(ml_prob)
 
                 sig_val = row["signal"]
                 entry_price = row["close"]
@@ -621,6 +683,7 @@ class HistoricalSimulator:
                 ema_dist = (row["ema_fast"] - row["ema_slow"]) / row["ema_slow"]
                 ema200_dist = (entry_price - row["ema_trend"]) / row["ema_trend"]
                 saved_tp2 = tp2 if tp2 != 0 else final_exit_price
+                row["context_score"] = score
 
                 outcomes.append((
                     ts_iso, symbol, exec_tf, regime, strategy_used, eng_state_label,
@@ -638,7 +701,7 @@ class HistoricalSimulator:
             + self.audit_metrics["rejected_symbol_cooldown_lock"]
         )
         self.audit_metrics["rejected_locks"] = total_locks
-        total_rejected = total_locks + self.audit_metrics["rejected_low_priority"]
+        total_rejected = total_locks + self.audit_metrics["rejected_low_priority"] + self.audit_metrics["ml_filtered_trades"]
         self.audit_metrics["rejected_signals"] = total_rejected
 
         generated = self.audit_metrics["total_signals_generated"]
@@ -659,6 +722,35 @@ class HistoricalSimulator:
         self.audit_metrics["selection_quality_ratio"] = (
             self.audit_metrics["avg_executed_score"] / avg_all if avg_all else 0.0
         )
+
+        self.audit_metrics["avg_ml_score_executed"] = (
+            sum(ml_executed_probs) / len(ml_executed_probs) if ml_executed_probs else 0.0
+        )
+        self.audit_metrics["avg_ml_score_rejected"] = (
+            sum(ml_rejected_probs) / len(ml_rejected_probs) if ml_rejected_probs else 0.0
+        )
+        ml_total = self.audit_metrics["ml_candidates_scored"]
+        ml_accepted = ml_total - self.audit_metrics["ml_filtered_trades"]
+        self.audit_metrics["ml_acceptance_rate"] = (ml_accepted / ml_total) if ml_total else 0.0
+        self.audit_metrics["ml_fallback_count"] = int(get_ml_runtime_metrics().get("ml_fallback_count", 0))
+
+        if outcomes:
+            pnl_series = [float(t[26]) for t in outcomes]
+            bal_series = [self.initial_balance]
+            bal_series.extend(float(t[27]) for t in outcomes)
+            wins = sum(1 for p in pnl_series if p > 0)
+            losses = len(pnl_series) - wins
+            self.audit_metrics["win_rate"] = (wins / len(pnl_series) * 100.0) if pnl_series else 0.0
+            pos_sum = sum(p for p in pnl_series if p > 0)
+            neg_sum = abs(sum(p for p in pnl_series if p <= 0))
+            self.audit_metrics["profit_factor"] = (pos_sum / neg_sum) if neg_sum > 0 else float("inf")
+            net_pnl_total = sum(pnl_series)
+            self.audit_metrics["net_pnl_pct"] = (net_pnl_total / self.initial_balance * 100.0) if self.initial_balance else 0.0
+
+            running = np.array(bal_series, dtype=float)
+            peaks = np.maximum.accumulate(running)
+            dd = (running - peaks) / peaks
+            self.audit_metrics["max_drawdown_pct"] = float(np.min(dd) * 100.0)
 
         cluster_count = self.audit_metrics["cluster_event_count"]
         self.audit_metrics["cluster_event_avg_size"] = (
@@ -702,6 +794,15 @@ class HistoricalSimulator:
         print(f"  Selection quality: {self.audit_metrics['selection_quality_ratio']:.4f}")
         print(f"  Cluster events   : {self.audit_metrics['cluster_event_count']}")
         print(f"  Avg cluster size : {self.audit_metrics['cluster_event_avg_size']:.2f}")
+
+        print("\n[PHASE 7 ML METRICS]")
+        print(f"  ML threshold      : {self.ml_threshold:.2f}")
+        print(f"  ML scored         : {self.audit_metrics['ml_candidates_scored']}")
+        print(f"  ML filtered trades: {self.audit_metrics['ml_filtered_trades']}")
+        print(f"  ML accept rate    : {self.audit_metrics['ml_acceptance_rate']:.2%}")
+        print(f"  Avg ML exec prob  : {self.audit_metrics['avg_ml_score_executed']:.4f}")
+        print(f"  Avg ML rej prob   : {self.audit_metrics['avg_ml_score_rejected']:.4f}")
+        print(f"  ML fallback count : {self.audit_metrics['ml_fallback_count']}")
         return outcomes
 
     # ── Persist ────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 import json
+import sqlite3
 from pathlib import Path
+import pandas as pd
 
 
 def _safe_pct(numerator, denominator):
@@ -35,6 +37,10 @@ def write_phase61_scaling_report(tier_results, output_dir):
             "initial_balance": tier.get("initial_balance"),
             "final_balance": metrics.get("final_balance"),
             "trade_count": tier.get("trade_count", 0),
+            "win_rate": metrics.get("win_rate", 0.0),
+            "profit_factor": metrics.get("profit_factor", 0.0),
+            "net_pnl_pct": metrics.get("net_pnl_pct", 0.0),
+            "max_drawdown_pct": metrics.get("max_drawdown_pct", 0.0),
             "total_signals_generated": generated,
             "total_signals_executed": executed,
             "rejected_signals": rejected,
@@ -237,4 +243,151 @@ def write_phase62_scaling_report(tier_results, output_dir):
         "correlation_summary": str(correlation_path),
         "top_5_pairs": str(top_pairs_path),
         "scalability_diagnosis": str(report_path),
+    }
+
+
+def write_phase7_ml_report(tier_results, output_dir):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    scaling_matrix = []
+    for tier in tier_results:
+        metrics = tier.get("audit_metrics", {})
+        row = {
+            "tier_name": tier.get("tier_name"),
+            "initial_balance": tier.get("initial_balance"),
+            "final_balance": metrics.get("final_balance"),
+            "trade_count": tier.get("trade_count", 0),
+            "win_rate": metrics.get("win_rate", 0.0),
+            "profit_factor": metrics.get("profit_factor", 0.0),
+            "net_pnl_pct": metrics.get("net_pnl_pct", 0.0),
+            "max_drawdown_pct": metrics.get("max_drawdown_pct", 0.0),
+            "ml_filtered_trades": metrics.get("ml_filtered_trades", 0),
+            "ml_candidates_scored": metrics.get("ml_candidates_scored", 0),
+            "avg_ml_score_executed": metrics.get("avg_ml_score_executed", 0.0),
+            "avg_ml_score_rejected": metrics.get("avg_ml_score_rejected", 0.0),
+            "ml_acceptance_rate": metrics.get("ml_acceptance_rate", 0.0),
+            "ml_fallback_count": metrics.get("ml_fallback_count", 0),
+        }
+        scaling_matrix.append(row)
+
+    root = Path(__file__).resolve().parent.parent.parent
+    baseline_path = root / "research" / "portfolio_backtests" / "v24" / "phase62_scaling_matrix.json"
+    baseline_rows = {}
+    if baseline_path.exists():
+        try:
+            with open(baseline_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                for row in data:
+                    tier_name = row.get("tier_name")
+                    if tier_name:
+                        baseline_rows[tier_name] = row
+        except Exception:
+            baseline_rows = {}
+
+    baseline_perf = {}
+    baseline_dir = baseline_path.parent
+    if baseline_dir.exists():
+        for db in baseline_dir.glob("*.sqlite"):
+            tier_name = None
+            stem = db.stem.lower()
+            if "tier_10k" in stem:
+                tier_name = "TIER_10K"
+            elif "tier_100k" in stem:
+                tier_name = "TIER_100K"
+            elif "tier_1m" in stem:
+                tier_name = "TIER_1M"
+            if not tier_name:
+                continue
+            try:
+                conn = sqlite3.connect(str(db))
+                df = pd.read_sql_query("SELECT running_balance, net_pnl_usd FROM historical_trades ORDER BY timestamp ASC", conn)
+                conn.close()
+                if df.empty:
+                    continue
+                initial_balance = float(df["running_balance"].iloc[0] - df["net_pnl_usd"].iloc[0])
+                pnl = pd.to_numeric(df["net_pnl_usd"], errors="coerce").fillna(0.0)
+                pos = float(pnl[pnl > 0].sum())
+                neg = float(abs(pnl[pnl <= 0].sum()))
+                pf = (pos / neg) if neg > 0 else float("inf")
+                final_balance = float(df["running_balance"].iloc[-1])
+                net_pnl_pct = ((final_balance - initial_balance) / initial_balance * 100.0) if initial_balance else 0.0
+                rb = pd.to_numeric(df["running_balance"], errors="coerce").ffill()
+                peaks = rb.cummax()
+                dd = (rb - peaks) / peaks
+                max_dd_pct = float(dd.min() * 100.0)
+                baseline_perf[tier_name] = {
+                    "profit_factor": pf,
+                    "net_pnl_pct": net_pnl_pct,
+                    "max_drawdown_pct": max_dd_pct,
+                }
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                continue
+
+    impact_rows = []
+    for row in scaling_matrix:
+        base = baseline_rows.get(row["tier_name"], {})
+        d_pf = None
+        d_pnl = None
+        d_dd = None
+        base_pf = base.get("profit_factor")
+        base_pnl = base.get("net_pnl_pct")
+        base_dd = base.get("max_drawdown_pct")
+        if base_pf is None and row["tier_name"] in baseline_perf:
+            base_pf = baseline_perf[row["tier_name"]].get("profit_factor")
+        if base_pnl is None and row["tier_name"] in baseline_perf:
+            base_pnl = baseline_perf[row["tier_name"]].get("net_pnl_pct")
+        if base_dd is None and row["tier_name"] in baseline_perf:
+            base_dd = baseline_perf[row["tier_name"]].get("max_drawdown_pct")
+
+        if base_pf is not None:
+            d_pf = row["profit_factor"] - float(base_pf)
+        if base_pnl is not None:
+            d_pnl = row["net_pnl_pct"] - float(base_pnl)
+        if base_dd is not None:
+            d_dd = row["max_drawdown_pct"] - float(base_dd)
+
+        impact_rows.append({
+            "tier_name": row["tier_name"],
+            "delta_profit_factor_vs_v24_phase62": d_pf,
+            "delta_net_pnl_pct_vs_v24_phase62": d_pnl,
+            "delta_max_drawdown_pct_vs_v24_phase62": d_dd,
+        })
+
+    report = {
+        "phase": "7_ml_trade_quality_filter",
+        "baseline_reference": str(baseline_path),
+        "scaling_matrix": scaling_matrix,
+        "ml_impact_vs_v24_phase62": impact_rows,
+    }
+
+    matrix_path = output_dir / "phase7_scaling_matrix.json"
+    metrics_path = output_dir / "phase7_ml_metrics.json"
+    report_path = output_dir / "phase7_ml_report.json"
+
+    with open(matrix_path, "w", encoding="utf-8") as f:
+        json.dump(scaling_matrix, f, indent=2)
+
+    metrics_payload = {
+        "avg_ml_score_executed_by_tier": {r["tier_name"]: r["avg_ml_score_executed"] for r in scaling_matrix},
+        "avg_ml_score_rejected_by_tier": {r["tier_name"]: r["avg_ml_score_rejected"] for r in scaling_matrix},
+        "ml_acceptance_rate_by_tier": {r["tier_name"]: r["ml_acceptance_rate"] for r in scaling_matrix},
+        "ml_filtered_trades_by_tier": {r["tier_name"]: r["ml_filtered_trades"] for r in scaling_matrix},
+        "ml_fallback_count_by_tier": {r["tier_name"]: r["ml_fallback_count"] for r in scaling_matrix},
+    }
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_payload, f, indent=2)
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+    return {
+        "scaling_matrix": str(matrix_path),
+        "ml_metrics": str(metrics_path),
+        "ml_report": str(report_path),
     }
