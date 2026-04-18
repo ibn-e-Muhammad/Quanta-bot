@@ -9,6 +9,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from research.src.historical_simulator import HistoricalSimulator
+from research.src.capacity_correlation_audit import write_phase61_scaling_report
 
 def get_next_version(base_dir, prefix="v"):
     """
@@ -62,21 +63,43 @@ def run_portfolio_orchestrator():
         }
     }
     
-    # Destination DB mapping
-    db_path = ver_dir / "portfolio_results.sqlite"
-    
-    # Execution
-    sim = HistoricalSimulator(str(base_config), str(data_dir), str(db_path), config_override=overrides)
-    
+    capital_tiers = [
+        ("TIER_10K", 10_000.0),
+        ("TIER_100K", 100_000.0),
+        ("TIER_1M", 1_000_000.0),
+    ]
+
+    tier_results = []
     start_time = time.time()
-    try:
-        sim.run_portfolio_simulation(watchlist)
-        duration = time.time() - start_time
-        print(f"\n[ORCHESTRATOR] SIMULATION COMPLETE")
-        print(f"Duration: {duration:.2f}s")
-        print(f"Results saved to: {db_path}")
-    except Exception as e:
-        print(f"\n[ERROR] Portfolio Simulation Failed: {e}")
+
+    for tier_name, initial_balance in capital_tiers:
+        db_path = ver_dir / f"portfolio_results_{tier_name.lower()}.sqlite"
+        tier_overrides = dict(overrides)
+        tier_overrides["initial_balance"] = initial_balance
+
+        print(f"\n[ORCHESTRATOR] Running {tier_name} | initial_balance=${initial_balance:,.0f}")
+        sim = HistoricalSimulator(str(base_config), str(data_dir), str(db_path), config_override=tier_overrides)
+
+        try:
+            result = sim.run_portfolio_simulation(watchlist)
+            result["tier_name"] = tier_name
+            result["initial_balance"] = initial_balance
+            tier_results.append(result)
+            print(
+                f"[ORCHESTRATOR] {tier_name} complete | trades={result.get('trade_count', 0)} "
+                f"| generated={result.get('audit_metrics', {}).get('total_signals_generated', 0)} "
+                f"| rejected={result.get('audit_metrics', {}).get('rejected_signals', 0)}"
+            )
+        except Exception as e:
+            print(f"[ERROR] {tier_name} failed: {e}")
+
+    duration = time.time() - start_time
+    print(f"\n[ORCHESTRATOR] SIMULATION COMPLETE | Duration: {duration:.2f}s")
+
+    report_paths = write_phase61_scaling_report(tier_results, ver_dir)
+    print("[ORCHESTRATOR] Phase 6.1 artifacts generated:")
+    for k, v in report_paths.items():
+        print(f"  - {k}: {v}")
 
 if __name__ == "__main__":
     run_portfolio_orchestrator()

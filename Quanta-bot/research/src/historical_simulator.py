@@ -4,8 +4,10 @@ import sqlite3
 import os
 import json
 import sys
+import math
 from pathlib import Path
 from datetime import timedelta
+from itertools import combinations
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_ROOT) not in sys.path:
@@ -57,8 +59,36 @@ class HistoricalSimulator:
         self.collapse_warning = False
         self.filter_stats = {}
         self.daily_dd_breaches = 0
+        self.initial_balance = float(self.config_override.get("initial_balance", 10000.0))
+        self.audit_metrics = self._init_audit_metrics()
 
         self.setup_db()
+
+    def _init_audit_metrics(self):
+        return {
+            "initial_balance": self.initial_balance,
+            "final_balance": self.initial_balance,
+            "total_signals_generated": 0,
+            "total_signals_executed": 0,
+            "rejected_concurrency_lock": 0,
+            "rejected_symbol_open_lock": 0,
+            "rejected_symbol_cooldown_lock": 0,
+            "rejected_other": 0,
+            "rejected_signals": 0,
+            "duplicate_signal_rejection_rate": 0.0,
+            "cluster_event_count": 0,
+            "cluster_event_total_size": 0,
+            "cluster_event_avg_size": 0.0,
+            "same_candle_multi_symbol_activations": 0,
+            "co_activation_pairs": {},
+        }
+
+    @staticmethod
+    def _slippage_rate_from_notional(notional):
+        if notional <= 50000:
+            return 0.0002
+        penalty_steps = math.floor((notional - 50000) / 50000)
+        return 0.0002 + (penalty_steps * 0.0001)
 
     # ── DB ─────────────────────────────────────────────────────────────
     def setup_db(self):
@@ -166,6 +196,7 @@ class HistoricalSimulator:
 
     # ── Portfolio run ──────────────────────────────────────────────────
     def run_portfolio_simulation(self, watchlist):
+        self.audit_metrics = self._init_audit_metrics()
         self.price_data = {}
         all_signals     = []
 
@@ -192,9 +223,23 @@ class HistoricalSimulator:
         trades = self.simulate_portfolio_trades(all_signals, watchlist)
         self.save_trades(trades)
 
+        audit_path = None
+        if self.db_path != ":memory:":
+            db_file = Path(self.db_path)
+            audit_path = db_file.with_name(f"{db_file.stem}_phase61_audit.json")
+            with open(audit_path, "w", encoding="utf-8") as f:
+                json.dump(self.audit_metrics, f, indent=2)
+
+        return {
+            "db_path": self.db_path,
+            "trade_count": len(trades),
+            "audit_path": str(audit_path) if audit_path else None,
+            "audit_metrics": self.audit_metrics,
+        }
+
     # ── Core simulation loop ───────────────────────────────────────────
     def simulate_portfolio_trades(self, all_signals, watchlist, forward_window=200):
-        current_balance   = 10000.0
+        current_balance   = self.initial_balance
         open_positions    = []
         outcomes          = []
         gov_log           = []
@@ -207,11 +252,51 @@ class HistoricalSimulator:
         # Symbol cooldown: symbol → earliest datetime allowed to re-enter
         symbol_cooldown   = {}
 
+        # Correlation telemetry (same-candle valid activation pressure)
+        current_ts = None
+        symbols_at_ts = set()
+        pair_counts = {}
+
+        def flush_cluster_metrics():
+            if len(symbols_at_ts) < 2:
+                return
+            cluster_size = len(symbols_at_ts)
+            self.audit_metrics["cluster_event_count"] += 1
+            self.audit_metrics["cluster_event_total_size"] += cluster_size
+            self.audit_metrics["same_candle_multi_symbol_activations"] += cluster_size
+            for a, b in combinations(sorted(symbols_at_ts), 2):
+                key = f"{a}|{b}"
+                pair_counts[key] = pair_counts.get(key, 0) + 1
+
         for row in all_signals:
             symbol   = row['symbol']
             ts       = row['datetime_utc']
             exec_tf  = row.get('exec_tf', '4h')
             tf_min   = TF_MINUTES.get(exec_tf, 240)
+
+            if current_ts is None:
+                current_ts = ts
+            elif ts != current_ts:
+                flush_cluster_metrics()
+                symbols_at_ts = set()
+                current_ts = ts
+
+            strategy_used = row.get('strategy_used', 'none')
+            if strategy_used not in ENGINE_PRIORITY:
+                continue
+
+            sig_val      = row['signal']
+            entry_price  = row['close']
+            atr          = row['atr']
+
+            # Generated signals: passed engine-level validity only.
+            if not evaluate_trade_quality(row):
+                continue
+            if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO:
+                continue
+
+            self.audit_metrics["total_signals_generated"] += 1
+            symbols_at_ts.add(symbol)
 
             # ── Expire closed positions & apply their PnL to close-date bucket ──
             still_open = []
@@ -229,44 +314,43 @@ class HistoricalSimulator:
             today_pnl = daily_closed_pnl.get(today, 0.0)
             if today_pnl <= (current_balance * DAILY_DD_CAP):
                 self.daily_dd_breaches += 1 if today_pnl == (current_balance * DAILY_DD_CAP) else 0
+                self.audit_metrics["rejected_other"] += 1
                 continue   # blocked for the rest of this UTC day
 
             # ── Global concurrency limit ──
-            if len(open_positions) >= MAX_CONCURRENT: continue
+            if len(open_positions) >= MAX_CONCURRENT:
+                self.audit_metrics["rejected_concurrency_lock"] += 1
+                continue
 
             # ── Per-symbol cooldown (1 full 4H candle after any close) ──
             cooldown_until = symbol_cooldown.get(symbol)
-            if cooldown_until is not None and ts < cooldown_until: continue
+            if cooldown_until is not None and ts < cooldown_until:
+                self.audit_metrics["rejected_symbol_cooldown_lock"] += 1
+                continue
 
             # ── Per-symbol: only one open at a time ──
-            if any(p['symbol'] == symbol for p in open_positions): continue
-
-            if not evaluate_trade_quality(row): continue
-
-            strategy_used = row.get('strategy_used', 'none')
-            if strategy_used not in ENGINE_PRIORITY: continue
+            if any(p['symbol'] == symbol for p in open_positions):
+                self.audit_metrics["rejected_symbol_open_lock"] += 1
+                continue
 
             # ── Governor ──
             allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
-            if not allow: continue
+            if not allow:
+                self.audit_metrics["rejected_other"] += 1
+                continue
             eng_state_label = engine_states[strategy_used]["state"]
-
-            sig_val      = row['signal']
-            entry_price  = row['close']
-            atr          = row['atr']
             sl           = row['target_sl']
             tp1          = row['target_tp1']
             tp2          = row['target_tp2']
             regime       = row['regime']
             volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
-            # ── Phase 6: Minimum ATR/price ratio (anti-fee-trap) ──
-            if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO: continue
-
             # ── Fixed Notional Cap with risk recomputation ──
             effective_risk = RISK_PER_TRADE * risk_mult
             price_risk     = abs(entry_price - sl)
-            if price_risk == 0: continue
+            if price_risk == 0:
+                self.audit_metrics["rejected_other"] += 1
+                continue
 
             risk_amount   = current_balance * effective_risk
             position_size = risk_amount / price_risk
@@ -278,14 +362,20 @@ class HistoricalSimulator:
                 position_size = notional / entry_price
                 risk_amount   = position_size * price_risk   # adjusted downward
 
-            if notional == 0: continue
+            if notional == 0:
+                self.audit_metrics["rejected_other"] += 1
+                continue
             margin_required = notional / 10.0
-            if margin_required > current_balance: continue
+            if margin_required > current_balance:
+                self.audit_metrics["rejected_other"] += 1
+                continue
 
-            if not is_fee_viable(entry_price, sl, notional): continue
+            if not is_fee_viable(entry_price, sl, notional):
+                self.audit_metrics["rejected_other"] += 1
+                continue
 
             entry_fee_rate = 0.0005   # expansion = taker
-            slippage_rate  = 0.0002
+            slippage_rate  = self._slippage_rate_from_notional(notional)
 
             # ── Forward-window simulation ──
             key      = f"{symbol}_{exec_tf}"
@@ -295,6 +385,8 @@ class HistoricalSimulator:
             prices       = self.price_data[key]['prices']
             end_idx      = min(idx_start + forward_window, len(prices))
             slice_window = prices[idx_start + 1:end_idx]
+
+            self.audit_metrics["total_signals_executed"] += 1
 
             outcome            = 0
             duration           = 0
@@ -444,6 +536,27 @@ class HistoricalSimulator:
                 float(fees_paid), float(slippage_paid), float(net_pnl), float(current_balance)
             ))
 
+        flush_cluster_metrics()
+
+        total_rejected = (
+            self.audit_metrics["rejected_concurrency_lock"]
+            + self.audit_metrics["rejected_symbol_open_lock"]
+            + self.audit_metrics["rejected_symbol_cooldown_lock"]
+        )
+        self.audit_metrics["rejected_signals"] = total_rejected
+        generated = self.audit_metrics["total_signals_generated"]
+        self.audit_metrics["duplicate_signal_rejection_rate"] = (
+            total_rejected / generated if generated else 0.0
+        )
+        cluster_count = self.audit_metrics["cluster_event_count"]
+        self.audit_metrics["cluster_event_avg_size"] = (
+            self.audit_metrics["cluster_event_total_size"] / cluster_count if cluster_count else 0.0
+        )
+        self.audit_metrics["co_activation_pairs"] = dict(
+            sorted(pair_counts.items(), key=lambda x: x[1], reverse=True)
+        )
+        self.audit_metrics["final_balance"] = current_balance
+
         # Engine summary
         if gov_log:
             print("\n[GOVERNANCE LOG]")
@@ -462,6 +575,13 @@ class HistoricalSimulator:
                   f"| recovery={rs}/{ra if ra>0 else 'N/A'}")
 
         print(f"\n[DAILY DD] Total breach days: {self.daily_dd_breaches}")
+        print("\n[PHASE 6.1 AUDIT]")
+        print(f"  Generated signals: {self.audit_metrics['total_signals_generated']}")
+        print(f"  Executed signals : {self.audit_metrics['total_signals_executed']}")
+        print(f"  Rejected (locks) : {self.audit_metrics['rejected_signals']}")
+        print(f"  Dup reject rate  : {self.audit_metrics['duplicate_signal_rejection_rate']:.2%}")
+        print(f"  Cluster events   : {self.audit_metrics['cluster_event_count']}")
+        print(f"  Avg cluster size : {self.audit_metrics['cluster_event_avg_size']:.2f}")
         return outcomes
 
     # ── Persist ────────────────────────────────────────────────────────
