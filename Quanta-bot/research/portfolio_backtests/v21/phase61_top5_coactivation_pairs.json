@@ -1,0 +1,22 @@
+[
+  {
+    "pair": "AVAXUSDT|DOTUSDT",
+    "co_activations": 45
+  },
+  {
+    "pair": "ADAUSDT|DOGEUSDT",
+    "co_activations": 42
+  },
+  {
+    "pair": "AVAXUSDT|BTCUSDT",
+    "co_activations": 42
+  },
+  {
+    "pair": "BTCUSDT|ETHUSDT",
+    "co_activations": 42
+  },
+  {
+    "pair": "BTCUSDT|DOTUSDT",
+    "co_activations": 39
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "capacity_utilization_by_tier": {
+    "TIER_10K": 0.47829787234042553,
+    "TIER_100K": 0.47829787234042553,
+    "TIER_1M": 0.47829787234042553
+  },
+  "third_trade_usage_by_tier": {
+    "TIER_10K": {
+      "third_trades_executed": 48,
+      "third_trade_usage_pct": 0.08540925266903915,
+      "third_trade_win_rate": 0.5833333333333334,
+      "third_trade_avg_pnl": 8.128590025564868
+    },
+    "TIER_100K": {
+      "third_trades_executed": 48,
+      "third_trade_usage_pct": 0.08540925266903915,
+      "third_trade_win_rate": 0.5833333333333334,
+      "third_trade_avg_pnl": 81.28590025564877
+    },
+    "TIER_1M": {
+      "third_trades_executed": 48,
+      "third_trade_usage_pct": 0.08540925266903915,
+      "third_trade_win_rate": 0.5625,
+      "third_trade_avg_pnl": 645.8272740618223
+    }
+  },
+  "risk_distribution_by_tier": {
+    "TIER_10K": {
+      "primary_risk_allocated_pct": 0.9553903345724901,
+      "third_risk_allocated_pct": 0.044609665427509854
+    },
+    "TIER_100K": {
+      "primary_risk_allocated_pct": 0.9553903345724901,
+      "third_risk_allocated_pct": 0.044609665427509854
+    },
+    "TIER_1M": {
+      "primary_risk_allocated_pct": 0.9553903345724901,
+      "third_risk_allocated_pct": 0.044609665427509854
+    }
+  }
+}

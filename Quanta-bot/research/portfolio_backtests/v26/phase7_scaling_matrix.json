@@ -1,0 +1,50 @@
+[
+  {
+    "tier_name": "TIER_10K",
+    "initial_balance": 10000.0,
+    "final_balance": 10000.0,
+    "trade_count": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "net_pnl_pct": 0.0,
+    "max_drawdown_pct": 0.0,
+    "ml_filtered_trades": 1175,
+    "ml_candidates_scored": 1175,
+    "avg_ml_score_executed": 0.0,
+    "avg_ml_score_rejected": 0.0632897831099702,
+    "ml_acceptance_rate": 0.0,
+    "ml_fallback_count": 0
+  },
+  {
+    "tier_name": "TIER_100K",
+    "initial_balance": 100000.0,
+    "final_balance": 100000.0,
+    "trade_count": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "net_pnl_pct": 0.0,
+    "max_drawdown_pct": 0.0,
+    "ml_filtered_trades": 1175,
+    "ml_candidates_scored": 1175,
+    "avg_ml_score_executed": 0.0,
+    "avg_ml_score_rejected": 0.0632897831099702,
+    "ml_acceptance_rate": 0.0,
+    "ml_fallback_count": 0
+  },
+  {
+    "tier_name": "TIER_1M",
+    "initial_balance": 1000000.0,
+    "final_balance": 1000000.0,
+    "trade_count": 0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "net_pnl_pct": 0.0,
+    "max_drawdown_pct": 0.0,
+    "ml_filtered_trades": 1175,
+    "ml_candidates_scored": 1175,
+    "avg_ml_score_executed": 0.0,
+    "avg_ml_score_rejected": 0.06386582388661052,
+    "ml_acceptance_rate": 0.0,
+    "ml_fallback_count": 0
+  }
+]

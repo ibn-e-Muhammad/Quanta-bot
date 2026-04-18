@@ -1,0 +1,37 @@
+{
+  "avg_executed_score_by_tier": {
+    "TIER_10K": 0.46075362024585287,
+    "TIER_100K": 0.46075362024585287,
+    "TIER_1M": 0.4610999639892189
+  },
+  "avg_rejected_score_by_tier": {
+    "TIER_10K": 0.3178806289649015,
+    "TIER_100K": 0.3178806289649015,
+    "TIER_1M": 0.31931899142416903
+  },
+  "selection_quality_ratio_by_tier": {
+    "TIER_10K": 1.1942155410027122,
+    "TIER_100K": 1.1942155410027122,
+    "TIER_1M": 1.1922730783579478
+  },
+  "rejection_breakdown_by_tier": {
+    "TIER_10K": {
+      "rejected_locks": 568,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 1.0,
+      "rejected_low_priority_pct": 0.0
+    },
+    "TIER_100K": {
+      "rejected_locks": 568,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 1.0,
+      "rejected_low_priority_pct": 0.0
+    },
+    "TIER_1M": {
+      "rejected_locks": 568,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 1.0,
+      "rejected_low_priority_pct": 0.0
+    }
+  }
+}

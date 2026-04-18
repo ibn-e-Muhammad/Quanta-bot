@@ -1,0 +1,27 @@
+{
+  "avg_ml_score_executed_by_tier": {
+    "TIER_10K": 0.0,
+    "TIER_100K": 0.0,
+    "TIER_1M": 0.0
+  },
+  "avg_ml_score_rejected_by_tier": {
+    "TIER_10K": 0.0632897831099702,
+    "TIER_100K": 0.0632897831099702,
+    "TIER_1M": 0.06386582388661052
+  },
+  "ml_acceptance_rate_by_tier": {
+    "TIER_10K": 0.0,
+    "TIER_100K": 0.0,
+    "TIER_1M": 0.0
+  },
+  "ml_filtered_trades_by_tier": {
+    "TIER_10K": 1175,
+    "TIER_100K": 1175,
+    "TIER_1M": 1175
+  },
+  "ml_fallback_count_by_tier": {
+    "TIER_10K": 0,
+    "TIER_100K": 0,
+    "TIER_1M": 0
+  }
+}

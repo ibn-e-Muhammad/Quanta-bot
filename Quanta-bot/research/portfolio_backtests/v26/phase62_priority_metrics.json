@@ -1,0 +1,37 @@
+{
+  "avg_executed_score_by_tier": {
+    "TIER_10K": 0.0,
+    "TIER_100K": 0.0,
+    "TIER_1M": 0.0
+  },
+  "avg_rejected_score_by_tier": {
+    "TIER_10K": 0.3848054654845993,
+    "TIER_100K": 0.3848054654845993,
+    "TIER_1M": 0.38864021725764897
+  },
+  "selection_quality_ratio_by_tier": {
+    "TIER_10K": 0.0,
+    "TIER_100K": 0.0,
+    "TIER_1M": 0.0
+  },
+  "rejection_breakdown_by_tier": {
+    "TIER_10K": {
+      "rejected_locks": 0,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 0.0,
+      "rejected_low_priority_pct": 0.0
+    },
+    "TIER_100K": {
+      "rejected_locks": 0,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 0.0,
+      "rejected_low_priority_pct": 0.0
+    },
+    "TIER_1M": {
+      "rejected_locks": 0,
+      "rejected_low_priority": 0,
+      "rejected_locks_pct": 0.0,
+      "rejected_low_priority_pct": 0.0
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "phase": "7_ml_trade_quality_filter",
+  "baseline_reference": "D:\\Code\\Projects\\Quanta Bot\\Quanta-bot\\research\\portfolio_backtests\\v24\\phase62_scaling_matrix.json",
+  "scaling_matrix": [
+    {
+      "tier_name": "TIER_10K",
+      "initial_balance": 10000.0,
+      "final_balance": 10000.0,
+      "trade_count": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl_pct": 0.0,
+      "max_drawdown_pct": 0.0,
+      "ml_filtered_trades": 1175,
+      "ml_candidates_scored": 1175,
+      "avg_ml_score_executed": 0.0,
+      "avg_ml_score_rejected": 0.0632897831099702,
+      "ml_acceptance_rate": 0.0,
+      "ml_fallback_count": 0
+    },
+    {
+      "tier_name": "TIER_100K",
+      "initial_balance": 100000.0,
+      "final_balance": 100000.0,
+      "trade_count": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl_pct": 0.0,
+      "max_drawdown_pct": 0.0,
+      "ml_filtered_trades": 1175,
+      "ml_candidates_scored": 1175,
+      "avg_ml_score_executed": 0.0,
+      "avg_ml_score_rejected": 0.0632897831099702,
+      "ml_acceptance_rate": 0.0,
+      "ml_fallback_count": 0
+    },
+    {
+      "tier_name": "TIER_1M",
+      "initial_balance": 1000000.0,
+      "final_balance": 1000000.0,
+      "trade_count": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl_pct": 0.0,
+      "max_drawdown_pct": 0.0,
+      "ml_filtered_trades": 1175,
+      "ml_candidates_scored": 1175,
+      "avg_ml_score_executed": 0.0,
+      "avg_ml_score_rejected": 0.06386582388661052,
+      "ml_acceptance_rate": 0.0,
+      "ml_fallback_count": 0
+    }
+  ],
+  "ml_impact_vs_v24_phase62": [
+    {
+      "tier_name": "TIER_10K",
+      "delta_profit_factor_vs_v24_phase62": -1.2717607786001879,
+      "delta_net_pnl_pct_vs_v24_phase62": -38.42100686932534,
+      "delta_max_drawdown_pct_vs_v24_phase62": 5.883233076250437
+    },
+    {
+      "tier_name": "TIER_100K",
+      "delta_profit_factor_vs_v24_phase62": -1.2717607786001879,
+      "delta_net_pnl_pct_vs_v24_phase62": -38.42100686932536,
+      "delta_max_drawdown_pct_vs_v24_phase62": 5.8832330762504945
+    },
+    {
+      "tier_name": "TIER_1M",
+      "delta_profit_factor_vs_v24_phase62": -1.2337243515792258,
+      "delta_net_pnl_pct_vs_v24_phase62": -32.631704407828884,
+      "delta_max_drawdown_pct_vs_v24_phase62": 5.98722999097741
+    }
+  ]
+}

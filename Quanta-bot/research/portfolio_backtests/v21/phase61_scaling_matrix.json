@@ -1,0 +1,47 @@
+[
+  {
+    "tier_name": "TIER_10K",
+    "initial_balance": 10000.0,
+    "final_balance": 13842.100686932534,
+    "trade_count": 515,
+    "total_signals_generated": 1175,
+    "total_signals_executed": 515,
+    "rejected_signals": 568,
+    "duplicate_signal_rejection_rate": 0.48340425531914893,
+    "execution_rate": 0.43829787234042555,
+    "cluster_event_count": 202,
+    "cluster_event_avg_size": 3.628712871287129,
+    "same_candle_multi_symbol_activations": 733,
+    "capacity_diagnosis": "SEVERE_CAPACITY_PRESSURE"
+  },
+  {
+    "tier_name": "TIER_100K",
+    "initial_balance": 100000.0,
+    "final_balance": 138421.00686932536,
+    "trade_count": 515,
+    "total_signals_generated": 1175,
+    "total_signals_executed": 515,
+    "rejected_signals": 568,
+    "duplicate_signal_rejection_rate": 0.48340425531914893,
+    "execution_rate": 0.43829787234042555,
+    "cluster_event_count": 202,
+    "cluster_event_avg_size": 3.628712871287129,
+    "same_candle_multi_symbol_activations": 733,
+    "capacity_diagnosis": "SEVERE_CAPACITY_PRESSURE"
+  },
+  {
+    "tier_name": "TIER_1M",
+    "initial_balance": 1000000.0,
+    "final_balance": 1326317.0440782888,
+    "trade_count": 515,
+    "total_signals_generated": 1175,
+    "total_signals_executed": 515,
+    "rejected_signals": 568,
+    "duplicate_signal_rejection_rate": 0.48340425531914893,
+    "execution_rate": 0.43829787234042555,
+    "cluster_event_count": 202,
+    "cluster_event_avg_size": 3.628712871287129,
+    "same_candle_multi_symbol_activations": 733,
+    "capacity_diagnosis": "SEVERE_CAPACITY_PRESSURE"
+  }
+]

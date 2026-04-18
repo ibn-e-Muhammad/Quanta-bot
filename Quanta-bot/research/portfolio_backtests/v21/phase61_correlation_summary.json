@@ -1,0 +1,39 @@
+{
+  "cluster_event_count_by_tier": {
+    "TIER_10K": 202,
+    "TIER_100K": 202,
+    "TIER_1M": 202
+  },
+  "cluster_event_avg_size_by_tier": {
+    "TIER_10K": 3.628712871287129,
+    "TIER_100K": 3.628712871287129,
+    "TIER_1M": 3.628712871287129
+  },
+  "same_candle_multi_symbol_activations_by_tier": {
+    "TIER_10K": 733,
+    "TIER_100K": 733,
+    "TIER_1M": 733
+  },
+  "top_5_co_activation_pairs": [
+    {
+      "pair": "AVAXUSDT|DOTUSDT",
+      "co_activations": 45
+    },
+    {
+      "pair": "ADAUSDT|DOGEUSDT",
+      "co_activations": 42
+    },
+    {
+      "pair": "AVAXUSDT|BTCUSDT",
+      "co_activations": 42
+    },
+    {
+      "pair": "BTCUSDT|ETHUSDT",
+      "co_activations": 42
+    },
+    {
+      "pair": "BTCUSDT|DOTUSDT",
+      "co_activations": 39
+    }
+  ]
+}
