@@ -268,6 +268,13 @@ def write_phase7_ml_report(tier_results, output_dir):
             "avg_ml_score_rejected": metrics.get("avg_ml_score_rejected", 0.0),
             "ml_acceptance_rate": metrics.get("ml_acceptance_rate", 0.0),
             "ml_fallback_count": metrics.get("ml_fallback_count", 0),
+            "ml_inference_error_count": metrics.get("ml_inference_error_count", 0),
+            "ml_score_distribution": metrics.get("ml_score_distribution", {
+                "min": 0.0,
+                "max": 0.0,
+                "mean": 0.0,
+                "std": 0.0,
+            }),
         }
         scaling_matrix.append(row)
 
@@ -379,6 +386,8 @@ def write_phase7_ml_report(tier_results, output_dir):
         "ml_acceptance_rate_by_tier": {r["tier_name"]: r["ml_acceptance_rate"] for r in scaling_matrix},
         "ml_filtered_trades_by_tier": {r["tier_name"]: r["ml_filtered_trades"] for r in scaling_matrix},
         "ml_fallback_count_by_tier": {r["tier_name"]: r["ml_fallback_count"] for r in scaling_matrix},
+        "ml_inference_error_count_by_tier": {r["tier_name"]: r["ml_inference_error_count"] for r in scaling_matrix},
+        "ml_score_distribution_by_tier": {r["tier_name"]: r["ml_score_distribution"] for r in scaling_matrix},
     }
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics_payload, f, indent=2)

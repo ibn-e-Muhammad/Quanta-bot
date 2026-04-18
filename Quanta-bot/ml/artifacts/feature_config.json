@@ -1,9 +1,8 @@
 {
-  "version": "phase7_v1",
-  "scaler": "minmax",
+  "version": "phase71_v1",
+  "scaler": "standard",
   "feature_order": [
     "trade_direction",
-    "score",
     "atr_value",
     "adx_value",
     "ema_distance",
@@ -14,30 +13,30 @@
     "hour_of_day",
     "day_of_week"
   ],
-  "min": {
-    "trade_direction": -1.0,
-    "score": -0.05,
-    "atr_value": 0.0011871428571428,
-    "adx_value": 22.050835992159087,
-    "ema_distance": 1.3498521962631744e-05,
-    "cost_estimate": 0.0013999999999999,
-    "volatility_regime": 0.0,
-    "candle_range": 0.0006999999999998,
-    "trend_strength": 2.8010991701611924e-05,
-    "hour_of_day": 0.0,
-    "day_of_week": 0.0
-  },
-  "max": {
-    "trade_direction": 1.0,
-    "score": 0.8499999999999999,
-    "atr_value": 2184.084285714286,
-    "adx_value": 79.92489071334406,
-    "ema_distance": 2.097942612995796,
-    "cost_estimate": 0.0014,
-    "volatility_regime": 2.0,
-    "candle_range": 0.2174903819684568,
-    "trend_strength": 0.1545652752392201,
-    "hour_of_day": 20.0,
-    "day_of_week": 6.0
+  "scaler_params": {
+    "mean": {
+      "trade_direction": -0.06111111111111111,
+      "atr_value": 32.47411601210318,
+      "adx_value": 38.64998817283258,
+      "ema_distance": 0.12385909074803021,
+      "cost_estimate": 0.0007,
+      "volatility_regime": 1.0416666666666667,
+      "candle_range": 0.038083844030282234,
+      "trend_strength": 0.02000863841885333,
+      "hour_of_day": 10.444444444444445,
+      "day_of_week": 1.9305555555555556
+    },
+    "std": {
+      "trade_direction": 0.9981309694117119,
+      "atr_value": 178.262272383543,
+      "adx_value": 12.189228518057657,
+      "ema_distance": 0.16982261122432651,
+      "cost_estimate": 4.336808689942018e-18,
+      "volatility_regime": 0.8272696053887155,
+      "candle_range": 0.020779894226729472,
+      "trend_strength": 0.018964739266619242,
+      "hour_of_day": 6.434475047414706,
+      "day_of_week": 1.530490016745624
+    }
   }
 }

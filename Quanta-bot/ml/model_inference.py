@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 
 ML_RUNTIME_METRICS = {
     "ml_fallback_count": 0,
+    "ml_inference_error_count": 0,
 }
 
 
@@ -31,14 +32,17 @@ def _artifacts_paths():
 
 def reset_ml_runtime_metrics():
     ML_RUNTIME_METRICS["ml_fallback_count"] = 0
+    ML_RUNTIME_METRICS["ml_inference_error_count"] = 0
 
 
 def get_ml_runtime_metrics():
     return dict(ML_RUNTIME_METRICS)
 
 
-def _fallback_probability():
+def _fallback_probability(is_error=False):
     ML_RUNTIME_METRICS["ml_fallback_count"] += 1
+    if is_error:
+        ML_RUNTIME_METRICS["ml_inference_error_count"] += 1
     return 1.0
 
 
@@ -59,6 +63,7 @@ def _load_once():
     except Exception:
         _MODEL = None
         _CONFIG = None
+        _fallback_probability(is_error=True)
     return _MODEL, _CONFIG
 
 
@@ -70,24 +75,25 @@ def predict_trade_quality(features_dict) -> float:
 
     try:
         feature_order = config.get("feature_order", [])
-        min_map = config.get("min", {})
-        max_map = config.get("max", {})
+        scaler_params = config.get("scaler_params", {})
+        mean_map = scaler_params.get("mean", {})
+        std_map = scaler_params.get("std", {})
 
         ordered = []
         for name in feature_order:
             if name not in features_dict:
                 return _fallback_probability()
             raw = float(features_dict[name])
-            f_min = float(min_map[name])
-            f_max = float(max_map[name])
-            if f_max == f_min:
-                norm = 0.5
+            f_mean = float(mean_map[name])
+            f_std = float(std_map[name])
+            if f_std == 0.0:
+                norm = 0.0
             else:
-                norm = (raw - f_min) / (f_max - f_min)
+                norm = (raw - f_mean) / f_std
             ordered.append(norm)
 
         x = np.array([ordered], dtype=float)
         proba = model.predict_proba(x)
         return float(proba[0][1])
     except Exception:
-        return _fallback_probability()
+        return _fallback_probability(is_error=True)

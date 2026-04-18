@@ -1,0 +1,71 @@
+[
+  {
+    "tier_name": "TIER_10K",
+    "initial_balance": 10000.0,
+    "final_balance": 22692.268881725922,
+    "trade_count": 321,
+    "win_rate": 64.48598130841121,
+    "profit_factor": 2.2577994192899595,
+    "net_pnl_pct": 126.92268881725927,
+    "max_drawdown_pct": -3.544978574813567,
+    "ml_filtered_trades": 532,
+    "ml_candidates_scored": 853,
+    "avg_ml_score_executed": 0.5744060963120541,
+    "avg_ml_score_rejected": 0.4369780710772151,
+    "ml_acceptance_rate": 0.37631887456037516,
+    "ml_fallback_count": 0,
+    "ml_inference_error_count": 0,
+    "ml_score_distribution": {
+      "min": 0.22190450007511606,
+      "max": 0.7167733747448276,
+      "mean": 0.48869483086664456,
+      "std": 0.08546563718187468
+    }
+  },
+  {
+    "tier_name": "TIER_100K",
+    "initial_balance": 100000.0,
+    "final_balance": 226922.688817259,
+    "trade_count": 321,
+    "win_rate": 64.48598130841121,
+    "profit_factor": 2.257799419289959,
+    "net_pnl_pct": 126.92268881725917,
+    "max_drawdown_pct": -3.544978574813537,
+    "ml_filtered_trades": 532,
+    "ml_candidates_scored": 853,
+    "avg_ml_score_executed": 0.5744060963120541,
+    "avg_ml_score_rejected": 0.4369780710772151,
+    "ml_acceptance_rate": 0.37631887456037516,
+    "ml_fallback_count": 0,
+    "ml_inference_error_count": 0,
+    "ml_score_distribution": {
+      "min": 0.22190450007511614,
+      "max": 0.7167733747448275,
+      "mean": 0.48869483086664456,
+      "std": 0.08546563718187468
+    }
+  },
+  {
+    "tier_name": "TIER_1M",
+    "initial_balance": 1000000.0,
+    "final_balance": 2151273.585397264,
+    "trade_count": 320,
+    "win_rate": 64.375,
+    "profit_factor": 2.139686346808852,
+    "net_pnl_pct": 115.1273585397264,
+    "max_drawdown_pct": -3.8038974753001997,
+    "ml_filtered_trades": 531,
+    "ml_candidates_scored": 851,
+    "avg_ml_score_executed": 0.5746566322930202,
+    "avg_ml_score_rejected": 0.4368856813892215,
+    "ml_acceptance_rate": 0.37602820211515864,
+    "ml_fallback_count": 0,
+    "ml_inference_error_count": 0,
+    "ml_score_distribution": {
+      "min": 0.22190450007511614,
+      "max": 0.7167733747448275,
+      "mean": 0.4886914443612727,
+      "std": 0.08561549892832625
+    }
+  }
+]

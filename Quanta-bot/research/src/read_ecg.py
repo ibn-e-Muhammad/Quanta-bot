@@ -286,6 +286,12 @@ def _print_single_report(db_path, df, phase61, phase62, phase7, print_report=Tru
             print(f" ML Acceptance Rate     : {phase7.get('ml_acceptance_rate', 0.0) * 100.0:.2f}%")
             print(f" ML Filtered Trades     : {phase7.get('ml_filtered_trades', 0)}")
             print(f" ML Fallback Count      : {phase7.get('ml_fallback_count', 0)}")
+            print(f" ML Inference Errors    : {phase7.get('ml_inference_error_count', 0)}")
+            dist = phase7.get("ml_score_distribution", {})
+            print(
+                f" ML Score Distribution  : min={dist.get('min', 0.0):.4f} "
+                f"max={dist.get('max', 0.0):.4f} mean={dist.get('mean', 0.0):.4f} std={dist.get('std', 0.0):.4f}"
+            )
 
         print("=================================================")
         passed = is_pf_ok and is_dd_ok and is_vol_ok

@@ -45,7 +45,7 @@ MAX_CONCURRENT      = 2          # strict prop-firm concurrency
 DAILY_DD_CAP        = -0.015     # -1.5% daily realized DD lock
 MAX_NOTIONAL_MULT   = 5.0
 ATR_MIN_RATIO       = 0.003      # atr/price must exceed this (anti-fee-trap)
-ML_THRESHOLD        = 0.55
+ML_THRESHOLD        = 0.52
 
 
 class HistoricalSimulator:
@@ -95,6 +95,13 @@ class HistoricalSimulator:
             "avg_ml_score_rejected": 0.0,
             "ml_acceptance_rate": 0.0,
             "ml_fallback_count": 0,
+            "ml_inference_error_count": 0,
+            "ml_score_distribution": {
+                "min": 0.0,
+                "max": 0.0,
+                "mean": 0.0,
+                "std": 0.0,
+            },
             "win_rate": 0.0,
             "profit_factor": 0.0,
             "net_pnl_pct": 0.0,
@@ -329,6 +336,7 @@ class HistoricalSimulator:
         all_buffered_scores = []
         ml_executed_probs = []
         ml_rejected_probs = []
+        all_ml_probs = []
 
         def flush_cluster_metrics(symbols_at_ts):
             if len(symbols_at_ts) < 2:
@@ -474,7 +482,6 @@ class HistoricalSimulator:
 
                 ml_features = {
                     "trade_direction": 1.0 if row.get("signal") == 1 else -1.0,
-                    "score": float(score),
                     "atr_value": float(row.get("atr", 0.0)),
                     "adx_value": float(row.get("adx", 0.0)),
                     "ema_distance": float(ema_distance),
@@ -487,6 +494,7 @@ class HistoricalSimulator:
                 }
                 ml_prob = predict_trade_quality(ml_features)
                 self.audit_metrics["ml_candidates_scored"] += 1
+                all_ml_probs.append(float(ml_prob))
 
                 if ml_prob < self.ml_threshold:
                     self.audit_metrics["ml_filtered_trades"] += 1
@@ -732,7 +740,18 @@ class HistoricalSimulator:
         ml_total = self.audit_metrics["ml_candidates_scored"]
         ml_accepted = ml_total - self.audit_metrics["ml_filtered_trades"]
         self.audit_metrics["ml_acceptance_rate"] = (ml_accepted / ml_total) if ml_total else 0.0
-        self.audit_metrics["ml_fallback_count"] = int(get_ml_runtime_metrics().get("ml_fallback_count", 0))
+        runtime_ml = get_ml_runtime_metrics()
+        self.audit_metrics["ml_fallback_count"] = int(runtime_ml.get("ml_fallback_count", 0))
+        self.audit_metrics["ml_inference_error_count"] = int(runtime_ml.get("ml_inference_error_count", 0))
+
+        if all_ml_probs:
+            probs_arr = np.array(all_ml_probs, dtype=float)
+            self.audit_metrics["ml_score_distribution"] = {
+                "min": float(np.min(probs_arr)),
+                "max": float(np.max(probs_arr)),
+                "mean": float(np.mean(probs_arr)),
+                "std": float(np.std(probs_arr, ddof=0)),
+            }
 
         if outcomes:
             pnl_series = [float(t[26]) for t in outcomes]
@@ -803,6 +822,12 @@ class HistoricalSimulator:
         print(f"  Avg ML exec prob  : {self.audit_metrics['avg_ml_score_executed']:.4f}")
         print(f"  Avg ML rej prob   : {self.audit_metrics['avg_ml_score_rejected']:.4f}")
         print(f"  ML fallback count : {self.audit_metrics['ml_fallback_count']}")
+        print(f"  ML infer err count: {self.audit_metrics['ml_inference_error_count']}")
+        ml_dist = self.audit_metrics.get("ml_score_distribution", {})
+        print(
+            f"  ML prob dist      : min={ml_dist.get('min', 0.0):.4f} "
+            f"max={ml_dist.get('max', 0.0):.4f} mean={ml_dist.get('mean', 0.0):.4f} std={ml_dist.get('std', 0.0):.4f}"
+        )
         return outcomes
 
     # ── Persist ────────────────────────────────────────────────────────

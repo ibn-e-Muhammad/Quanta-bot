@@ -1,13 +1,11 @@
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 
 FEATURE_ORDER = [
     "trade_direction",
-    "score",
     "atr_value",
     "adx_value",
     "ema_distance",
@@ -24,51 +22,54 @@ def _to_float_series(series):
     return pd.to_numeric(series, errors="coerce").fillna(0.0).astype(float)
 
 
-def fit_minmax_transform(df: pd.DataFrame, feature_order=None):
+def fit_standard_transform(df: pd.DataFrame, feature_order=None):
     feature_order = feature_order or FEATURE_ORDER
-    mins = {}
-    maxs = {}
+    means = {}
+    stds = {}
     transformed = pd.DataFrame(index=df.index)
 
     for col in feature_order:
         if col not in df.columns:
             raise KeyError(f"Missing feature column: {col}")
         s = _to_float_series(df[col])
-        c_min = float(s.min())
-        c_max = float(s.max())
-        mins[col] = c_min
-        maxs[col] = c_max
-        if c_max == c_min:
-            transformed[col] = 0.5
+        c_mean = float(s.mean())
+        c_std = float(s.std(ddof=0))
+        means[col] = c_mean
+        stds[col] = c_std
+        if c_std == 0.0:
+            transformed[col] = 0.0
         else:
-            transformed[col] = (s - c_min) / (c_max - c_min)
+            transformed[col] = (s - c_mean) / c_std
 
     config = {
-        "version": "phase7_v1",
-        "scaler": "minmax",
+        "version": "phase71_v1",
+        "scaler": "standard",
         "feature_order": feature_order,
-        "min": mins,
-        "max": maxs,
+        "scaler_params": {
+            "mean": means,
+            "std": stds,
+        },
     }
     return transformed, config
 
 
-def apply_minmax_transform(df: pd.DataFrame, config: dict):
+def apply_standard_transform(df: pd.DataFrame, config: dict):
     feature_order = config.get("feature_order", FEATURE_ORDER)
-    mins = config.get("min", {})
-    maxs = config.get("max", {})
+    scaler_params = config.get("scaler_params", {})
+    means = scaler_params.get("mean", {})
+    stds = scaler_params.get("std", {})
 
     transformed = pd.DataFrame(index=df.index)
     for col in feature_order:
         if col not in df.columns:
             raise KeyError(f"Missing feature column for transform: {col}")
         s = _to_float_series(df[col])
-        c_min = float(mins[col])
-        c_max = float(maxs[col])
-        if c_max == c_min:
-            transformed[col] = 0.5
+        c_mean = float(means[col])
+        c_std = float(stds[col])
+        if c_std == 0.0:
+            transformed[col] = 0.0
         else:
-            transformed[col] = (s - c_min) / (c_max - c_min)
+            transformed[col] = (s - c_mean) / c_std
     return transformed
 
 

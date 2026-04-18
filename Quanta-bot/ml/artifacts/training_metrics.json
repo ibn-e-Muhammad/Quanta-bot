@@ -1,8 +1,15 @@
 {
-  "accuracy": 1.0,
-  "precision": 1.0,
-  "recall": 1.0,
-  "roc_auc": 1.0,
+  "accuracy": 0.5419354838709678,
+  "precision": 0.5542168674698795,
+  "recall": 0.575,
+  "roc_auc": 0.557,
+  "mean_predicted_probability": 0.5061079132248262,
+  "std_dev_probability": 0.08014461752628671,
+  "class_ratio_positive_train": 0.49444444444444446,
+  "class_weight_used": "none",
+  "random_state": 42,
   "train_rows": 360,
-  "test_rows": 155
+  "test_rows": 155,
+  "status": "passed",
+  "fail_reasons": []
 }

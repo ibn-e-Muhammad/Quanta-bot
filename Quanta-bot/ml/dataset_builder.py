@@ -1,4 +1,5 @@
 import argparse
+import math
 import sqlite3
 from pathlib import Path
 import sys
@@ -15,32 +16,28 @@ except ModuleNotFoundError:
     from feature_engineering import FEATURE_ORDER
 
 
-def _normalize_group(series):
-    s_min = series.min()
-    s_max = series.max()
-    if s_max == s_min:
-        return pd.Series([0.5] * len(series), index=series.index)
-    return (series - s_min) / (s_max - s_min)
+def _slippage_rate_from_notional(notional_usd: float) -> float:
+    if notional_usd <= 50000:
+        return 0.0002
+    penalty_steps = math.floor((notional_usd - 50000) / 50000)
+    return 0.0002 + (max(0, penalty_steps) * 0.0001)
 
 
 def _derive_dataset(df: pd.DataFrame):
     data = df.copy()
-    data["timestamp"] = pd.to_datetime(data["timestamp"], errors="coerce")
-    data = data.sort_values("timestamp").reset_index(drop=True)
+    data["entry_time"] = pd.to_datetime(data["timestamp"], errors="coerce")
+    data = data.sort_values(["entry_time", "symbol"], kind="mergesort").reset_index(drop=True)
 
     data["trade_direction"] = data["signal_type"].map({"BUY": 1.0, "SELL": -1.0}).fillna(-1.0)
     data["atr_value"] = pd.to_numeric(data["atr"], errors="coerce").fillna(0.0)
     data["adx_value"] = pd.to_numeric(data["adx"], errors="coerce").fillna(0.0)
     data["ema_distance"] = pd.to_numeric(data["ema_200_dist"], errors="coerce").abs().fillna(0.0)
 
-    fees = pd.to_numeric(data["fees_paid"], errors="coerce").fillna(0.0)
-    slip = pd.to_numeric(data["slippage_paid"], errors="coerce").fillna(0.0)
-    notional = pd.to_numeric(data["notional_usd"], errors="coerce").replace(0, pd.NA)
-    data["cost_estimate"] = ((fees + slip) / notional).fillna(0.0)
+    notional = pd.to_numeric(data["notional_usd"], errors="coerce").fillna(0.0)
+    data["cost_estimate"] = notional.apply(lambda n: 0.0005 + _slippage_rate_from_notional(float(n)))
 
     entry = pd.to_numeric(data["entry_price"], errors="coerce").replace(0, pd.NA)
-    sl = pd.to_numeric(data["sl_price"], errors="coerce")
-    data["candle_range"] = ((entry - sl).abs() / entry).fillna(0.0)
+    data["candle_range"] = (data["atr_value"] / entry).fillna(0.0)
     data["trend_strength"] = pd.to_numeric(data["ema_9_24_dist"], errors="coerce").abs().fillna(0.0)
 
     data["hour_of_day"] = pd.to_numeric(data["hour_of_day"], errors="coerce").fillna(0).astype(float)
@@ -54,23 +51,9 @@ def _derive_dataset(df: pd.DataFrame):
         include_lowest=True,
     ).astype(float)
 
-    data["atr_ratio"] = (data["atr_value"] / entry).fillna(0.0)
-
-    data["_norm_atr"] = data.groupby("timestamp")["atr_ratio"].transform(_normalize_group)
-    data["_norm_adx"] = data.groupby("timestamp")["adx_value"].transform(_normalize_group)
-    data["_norm_ema"] = data.groupby("timestamp")["ema_distance"].transform(_normalize_group)
-    data["_norm_cost"] = data.groupby("timestamp")["cost_estimate"].transform(_normalize_group)
-
-    data["score"] = (
-        (data["_norm_atr"] * 0.4)
-        + (data["_norm_adx"] * 0.3)
-        + (data["_norm_ema"] * 0.2)
-        - (data["_norm_cost"] * 0.1)
-    )
-
     data["label"] = (pd.to_numeric(data["net_pnl_usd"], errors="coerce").fillna(0.0) > 0).astype(int)
 
-    keep = ["timestamp", *FEATURE_ORDER, "label", "net_pnl_usd", "symbol", "signal_type"]
+    keep = ["entry_time", *FEATURE_ORDER, "label", "net_pnl_usd", "symbol", "signal_type"]
     return data[keep]
 
 
@@ -81,11 +64,11 @@ def build_dataset(input_db: str, output_dataset: str):
             """
             SELECT
                 timestamp, symbol, signal_type,
-                entry_price, sl_price,
+                entry_price,
                 atr, adx,
                 ema_9_24_dist, ema_200_dist,
                 hour_of_day, day_of_week,
-                fees_paid, slippage_paid, notional_usd,
+                notional_usd,
                 net_pnl_usd
             FROM historical_trades
             ORDER BY timestamp ASC
