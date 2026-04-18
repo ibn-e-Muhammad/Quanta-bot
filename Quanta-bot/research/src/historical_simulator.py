@@ -18,26 +18,26 @@ from execution.src.risk_engine import RiskEngine
 from research.src.trade_quality_engine import evaluate_trade_quality
 from research.src.fee_filter import is_fee_viable
 
-# Phase 5 — Regime/Strategy modules
 from research.src.regime_classifier import classify_regime
 from research.src.strategy_router import route_signal
 from research.src.strategies import breakout_engine, mean_reversion_engine, expansion_engine
 
-# Phase 5.2 — Engine Governance
 from research.src.engine_governor import (
     initial_state, tick_state, record_trade, get_pf,
     ENGINE_PRIORITY
 )
 
-# Phase 5.6 — Institutional Timeframes only
-EXEC_TIMEFRAMES  = ["1h", "4h"]
-MACRO_TF         = "4h"
-MTF_BASE_MINUTES = 60          # smallest TF candle duration in minutes (1h)
-MIN_TIME_GAP     = 3           # candles of base TF → 180 minutes
-MIN_GAP_MINUTES  = MIN_TIME_GAP * MTF_BASE_MINUTES  # 180 min
+# ── Phase 6 Configuration ──────────────────────────────────────────────
+EXEC_TIMEFRAMES     = ["4h"]
+MACRO_TF            = "4h"
+MIN_GAP_MINUTES     = 240        # 1 full 4H candle cooldown after any close
+TF_MINUTES          = {"4h": 240}
 
-# TF candle sizes for duration math
-TF_MINUTES = {"1h": 60, "4h": 240}
+RISK_PER_TRADE      = 0.005      # 0.5%
+MAX_CONCURRENT      = 2          # strict prop-firm concurrency
+DAILY_DD_CAP        = -0.015     # -1.5% daily realized DD lock
+MAX_NOTIONAL_MULT   = 5.0
+ATR_MIN_RATIO       = 0.003      # atr/price must exceed this (anti-fee-trap)
 
 
 class HistoricalSimulator:
@@ -47,21 +47,20 @@ class HistoricalSimulator:
             self.config = json.load(f)
         self.config_override = config_override or {}
 
-        self.data_dir   = data_dir
-        self.db_path    = db_path
-        self.ema_fast   = self.config.get("market_data", {}).get("ema_fast",  9)
-        self.ema_slow   = self.config.get("market_data", {}).get("ema_slow",  24)
-        self.ema_trend  = self.config.get("market_data", {}).get("ema_trend", 200)
+        self.data_dir  = data_dir
+        self.db_path   = db_path
+        self.ema_fast  = self.config.get("market_data", {}).get("ema_fast",  9)
+        self.ema_slow  = self.config.get("market_data", {}).get("ema_slow",  24)
+        self.ema_trend = self.config.get("market_data", {}).get("ema_trend", 200)
 
         self.filters_config = self.config_override.get("filters", {})
         self.collapse_warning = False
-        self.filter_stats     = {}
-        self.mtf_blocked      = 0
-        self.mtf_executed     = 0
+        self.filter_stats = {}
+        self.daily_dd_breaches = 0
 
         self.setup_db()
 
-    # ------------------------------------------------------------------
+    # ── DB ─────────────────────────────────────────────────────────────
     def setup_db(self):
         conn   = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -83,7 +82,7 @@ class HistoricalSimulator:
         ''')
         conn.commit(); conn.close()
 
-    # ------------------------------------------------------------------
+    # ── Indicators ─────────────────────────────────────────────────────
     def calculate_indicators(self, df):
         if df is None or df.empty: return df
         c = df['close']; h = df['high']; l = df['low']
@@ -120,7 +119,7 @@ class HistoricalSimulator:
         df['adx'] = dx.rolling(14).mean()
         return df
 
-    # ------------------------------------------------------------------
+    # ── Data loading ───────────────────────────────────────────────────
     def load_tf(self, symbol, tf):
         path = os.path.join(self.data_dir, f"{symbol}_{tf}_history.csv")
         if not os.path.exists(path): return None
@@ -130,19 +129,13 @@ class HistoricalSimulator:
         return self.calculate_indicators(df)
 
     def load_all_tfs(self, symbol):
-        """Load every TF needed: all exec TFs + macro TF."""
         needed = set(EXEC_TIMEFRAMES) | {MACRO_TF}
         return {tf: self.load_tf(symbol, tf) for tf in needed}
 
-    # ------------------------------------------------------------------
+    # ── Signal generation ──────────────────────────────────────────────
     def generate_signals_for_tf(self, df_exec, df_macro, exec_tf):
-        """
-        Merge exec TF with 4h macro, run expansion-only signal generation.
-        Returns list of signal dicts.
-        """
         if df_exec is None or df_macro is None: return []
-
-        df_m = df_macro.add_suffix('_4h').rename(columns={'datetime_utc_4h': 'datetime_utc'})
+        df_m   = df_macro.add_suffix('_4h').rename(columns={'datetime_utc_4h': 'datetime_utc'})
         merged = pd.merge_asof(df_exec, df_m, on='datetime_utc', direction='backward').dropna()
 
         records = merged.to_dict('records')
@@ -156,10 +149,8 @@ class HistoricalSimulator:
             sig_dict = expansion_engine.generate_signal(row)
             if sig_dict['signal'] == 0: continue
 
-            # 4H macro directional filter
             bull_4h = (row['close_4h'] > row['ema_trend_4h']) and (row['rsi_4h'] < 70)
             bear_4h = (row['close_4h'] < row['ema_trend_4h']) and (row['rsi_4h'] > 30)
-
             if sig_dict['signal'] == 1  and not bull_4h: continue
             if sig_dict['signal'] == -1 and not bear_4h: continue
 
@@ -171,16 +162,15 @@ class HistoricalSimulator:
             row['target_tp2']    = sig_dict['tp2']
             row['exec_tf']       = exec_tf
             signals.append(row)
-
         return signals
 
-    # ------------------------------------------------------------------
+    # ── Portfolio run ──────────────────────────────────────────────────
     def run_portfolio_simulation(self, watchlist):
-        self.price_data  = {}   # keyed by (symbol, tf)
-        all_signals      = []
+        self.price_data = {}
+        all_signals     = []
 
         for symbol in watchlist:
-            tf_data = self.load_all_tfs(symbol)
+            tf_data  = self.load_all_tfs(symbol)
             df_macro = tf_data.get(MACRO_TF)
             if df_macro is None: continue
 
@@ -189,81 +179,78 @@ class HistoricalSimulator:
                 if df_exec is None: continue
 
                 signals = self.generate_signals_for_tf(df_exec, df_macro, exec_tf)
-
-                # Store price window reference for this (symbol, exec_tf) pair
                 key = f"{symbol}_{exec_tf}"
                 self.price_data[key] = {
                     'prices':  df_exec[['open', 'high', 'low', 'close', 'ema_fast', 'ema_slow', 'datetime_utc']].values,
                     'idx_map': {ts: i for i, ts in enumerate(df_exec['datetime_utc'])},
                 }
-
                 for r in signals:
                     r['symbol'] = symbol
                 all_signals.extend(signals)
 
-        all_signals.sort(key=lambda x: (x['datetime_utc'], 0 if x.get('exec_tf') == '4h' else 1))
+        all_signals.sort(key=lambda x: x['datetime_utc'])
         trades = self.simulate_portfolio_trades(all_signals, watchlist)
         self.save_trades(trades)
 
-    # ------------------------------------------------------------------
+    # ── Core simulation loop ───────────────────────────────────────────
     def simulate_portfolio_trades(self, all_signals, watchlist, forward_window=200):
-        current_balance = 10000.0
-        open_positions  = []    # {exit_time, symbol, margin}
-        outcomes        = []
-        gov_log         = []
+        current_balance   = 10000.0
+        open_positions    = []
+        outcomes          = []
+        gov_log           = []
 
-        engine_states = {name: initial_state() for name in ENGINE_PRIORITY}
-        risk_engine   = RiskEngine(self.config_path)
-        current_date  = None
-        daily_counts  = {sym: 0 for sym in watchlist}
+        engine_states     = {name: initial_state() for name in ENGINE_PRIORITY}
+        risk_engine       = RiskEngine(self.config_path)
 
-        # Correlation guard: track last open timestamp per symbol
-        last_open_ts  = {}     # symbol → datetime
+        # Daily DD tracking (keyed by UTC date of CLOSE, not open)
+        daily_closed_pnl  = {}      # date → realized PnL
+        # Symbol cooldown: symbol → earliest datetime allowed to re-enter
+        symbol_cooldown   = {}
 
         for row in all_signals:
             symbol   = row['symbol']
             ts       = row['datetime_utc']
-            exec_tf  = row.get('exec_tf', '1h')
+            exec_tf  = row.get('exec_tf', '4h')
+            tf_min   = TF_MINUTES.get(exec_tf, 240)
 
-            trade_date = ts.date()
-            if current_date != trade_date:
-                current_date             = trade_date
-                risk_engine.daily_pnl   = 0.0
-                risk_engine.circuit_broken = False
-                daily_counts             = {sym: 0 for sym in watchlist}
+            # ── Expire closed positions & apply their PnL to close-date bucket ──
+            still_open = []
+            for pos in open_positions:
+                if pos['exit_time'] <= ts:
+                    # Trade closed — book realized PnL to its close date
+                    close_date = pos['exit_time'].date()
+                    daily_closed_pnl[close_date] = daily_closed_pnl.get(close_date, 0.0) + pos['net_pnl']
+                else:
+                    still_open.append(pos)
+            open_positions = still_open
 
-            open_positions = [t for t in open_positions if t['exit_time'] > ts]
+            # ── Daily DD lock — based on closed PnL on current UTC date ──
+            today = ts.date()
+            today_pnl = daily_closed_pnl.get(today, 0.0)
+            if today_pnl <= (current_balance * DAILY_DD_CAP):
+                self.daily_dd_breaches += 1 if today_pnl == (current_balance * DAILY_DD_CAP) else 0
+                continue   # blocked for the rest of this UTC day
 
-            # --- Global concurrency & frequency guards ---
-            if len(open_positions) >= 5: continue
-            if daily_counts.get(symbol, 0) >= 5: continue
+            # ── Global concurrency limit ──
+            if len(open_positions) >= MAX_CONCURRENT: continue
+
+            # ── Per-symbol cooldown (1 full 4H candle after any close) ──
+            cooldown_until = symbol_cooldown.get(symbol)
+            if cooldown_until is not None and ts < cooldown_until: continue
+
+            # ── Per-symbol: only one open at a time ──
+            if any(p['symbol'] == symbol for p in open_positions): continue
+
             if not evaluate_trade_quality(row): continue
 
             strategy_used = row.get('strategy_used', 'none')
             if strategy_used not in ENGINE_PRIORITY: continue
 
-            # --- Phase 5.5 Correlation Guard ---
-            last_ts = last_open_ts.get(symbol)
-            if last_ts is not None:
-                gap_minutes = (ts - last_ts).total_seconds() / 60
-                if gap_minutes < MIN_GAP_MINUTES:
-                    print(f"[MTF BLOCK] {symbol} {exec_tf} | Reason: recent {gap_minutes:.0f}m ago")
-                    self.mtf_blocked += 1
-                    continue
-
-            # Also block if same symbol already has a live open trade
-            sym_open = any(t['symbol'] == symbol for t in open_positions)
-            if sym_open:
-                print(f"[MTF BLOCK] {symbol} {exec_tf} | Reason: Active trade exists")
-                self.mtf_blocked += 1
-                continue
-
-            # --- Governor tick ---
+            # ── Governor ──
             allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
             if not allow: continue
             eng_state_label = engine_states[strategy_used]["state"]
 
-            # --- Trade setup ---
             sig_val      = row['signal']
             entry_price  = row['close']
             atr          = row['atr']
@@ -273,21 +260,23 @@ class HistoricalSimulator:
             regime       = row['regime']
             volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
-            # --- Phase 5.6: 1.0% base risk ---
-            effective_risk = 0.01 * risk_mult
+            # ── Phase 6: Minimum ATR/price ratio (anti-fee-trap) ──
+            if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO: continue
+
+            # ── Fixed Notional Cap with risk recomputation ──
+            effective_risk = RISK_PER_TRADE * risk_mult
             price_risk     = abs(entry_price - sl)
             if price_risk == 0: continue
 
-            risk_amount    = current_balance * effective_risk
-            position_size  = risk_amount / price_risk
-            notional       = position_size * entry_price
+            risk_amount   = current_balance * effective_risk
+            position_size = risk_amount / price_risk
+            notional      = position_size * entry_price
 
-            max_notional   = current_balance * 5.0
+            max_notional  = current_balance * MAX_NOTIONAL_MULT
             if notional > max_notional:
-                notional       = max_notional
-                position_size  = notional / entry_price
-                # Risk adjusts DOWNWARD — never upward
-                risk_amount    = position_size * price_risk
+                notional      = max_notional
+                position_size = notional / entry_price
+                risk_amount   = position_size * price_risk   # adjusted downward
 
             if notional == 0: continue
             margin_required = notional / 10.0
@@ -295,17 +284,10 @@ class HistoricalSimulator:
 
             if not is_fee_viable(entry_price, sl, notional): continue
 
-            daily_counts[symbol] = daily_counts.get(symbol, 0) + 1
-            last_open_ts[symbol] = ts
-
-            tf_candle_min  = TF_MINUTES.get(exec_tf, 60)
             entry_fee_rate = 0.0005   # expansion = taker
             slippage_rate  = 0.0002
 
-            print(f"[MTF EXECUTE] {symbol} | TF: {exec_tf} | Risk: {effective_risk*100:.2f}% | Notional: ${notional:.0f}")
-            self.mtf_executed += 1
-
-            # --- Forward-window price simulation ---
+            # ── Forward-window simulation ──
             key      = f"{symbol}_{exec_tf}"
             idx_map  = self.price_data[key]['idx_map']
             if ts not in idx_map: continue
@@ -327,29 +309,26 @@ class HistoricalSimulator:
             using_ema_trail    = (tp2 == 0)
 
             for j, f_row in enumerate(slice_window):
-                f_high  = f_row[1]
-                f_low   = f_row[2]
-                f_close = f_row[3]
-                f_ema24 = f_row[5]
-                f_ts    = f_row[6]
+                f_high  = f_row[1]; f_low   = f_row[2]
+                f_close = f_row[3]; f_ema24 = f_row[5]; f_ts = f_row[6]
 
                 if sig_val == 1:
                     if f_low <= current_sl:
                         outcome = 0 if not tp1_hit else 1
                         raw_pct = (current_sl - entry_price) / entry_price
-                        gross_pnl     += raw_pct * remaining_notional
-                        fees_paid     += remaining_notional * entry_fee_rate
+                        gross_pnl += raw_pct * remaining_notional
+                        fees_paid += remaining_notional * entry_fee_rate
                         slippage_paid += remaining_notional * slippage_rate
                         remaining_notional = 0
-                        duration       = (j + 1) * tf_candle_min
+                        duration = (j + 1) * tf_min
                         exit_timestamp = f_ts; final_exit_price = current_sl; break
 
                     if not tp1_hit and f_high >= tp1:
-                        tp1_hit  = True
-                        tranche  = notional * 0.5
-                        raw_pct  = (tp1 - entry_price) / entry_price
-                        gross_pnl     += raw_pct * tranche
-                        fees_paid     += tranche * entry_fee_rate
+                        tp1_hit = True
+                        tranche = notional * 0.5
+                        raw_pct = (tp1 - entry_price) / entry_price
+                        gross_pnl += raw_pct * tranche
+                        fees_paid += tranche * entry_fee_rate
                         slippage_paid += tranche * slippage_rate
                         remaining_notional -= tranche
                         current_sl = entry_price * (1.0 + entry_fee_rate + slippage_rate)
@@ -358,40 +337,40 @@ class HistoricalSimulator:
                         if f_close < f_ema24:
                             outcome = 1
                             raw_pct = (f_close - entry_price) / entry_price
-                            gross_pnl     += raw_pct * remaining_notional
-                            fees_paid     += remaining_notional * entry_fee_rate
+                            gross_pnl += raw_pct * remaining_notional
+                            fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
-                            duration = (j + 1) * tf_candle_min
+                            duration = (j + 1) * tf_min
                             exit_timestamp = f_ts; final_exit_price = f_close; break
-                    elif tp1_hit and not using_ema_trail:
+                    elif tp1_hit:
                         if f_high >= tp2:
                             outcome = 2
                             raw_pct = (tp2 - entry_price) / entry_price
-                            gross_pnl     += raw_pct * remaining_notional
-                            fees_paid     += remaining_notional * entry_fee_rate
+                            gross_pnl += raw_pct * remaining_notional
+                            fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
-                            duration = (j + 1) * tf_candle_min
+                            duration = (j + 1) * tf_min
                             exit_timestamp = f_ts; final_exit_price = tp2; break
 
-                else:  # SHORT
+                else:
                     if f_high >= current_sl:
                         outcome = 0 if not tp1_hit else 1
                         raw_pct = (entry_price - current_sl) / entry_price
-                        gross_pnl     += raw_pct * remaining_notional
-                        fees_paid     += remaining_notional * entry_fee_rate
+                        gross_pnl += raw_pct * remaining_notional
+                        fees_paid += remaining_notional * entry_fee_rate
                         slippage_paid += remaining_notional * slippage_rate
                         remaining_notional = 0
-                        duration = (j + 1) * tf_candle_min
+                        duration = (j + 1) * tf_min
                         exit_timestamp = f_ts; final_exit_price = current_sl; break
 
                     if not tp1_hit and f_low <= tp1:
-                        tp1_hit  = True
-                        tranche  = notional * 0.5
-                        raw_pct  = (entry_price - tp1) / entry_price
-                        gross_pnl     += raw_pct * tranche
-                        fees_paid     += tranche * entry_fee_rate
+                        tp1_hit = True
+                        tranche = notional * 0.5
+                        raw_pct = (entry_price - tp1) / entry_price
+                        gross_pnl += raw_pct * tranche
+                        fees_paid += tranche * entry_fee_rate
                         slippage_paid += tranche * slippage_rate
                         remaining_notional -= tranche
                         current_sl = entry_price * (1.0 - (entry_fee_rate + slippage_rate))
@@ -400,51 +379,62 @@ class HistoricalSimulator:
                         if f_close > f_ema24:
                             outcome = 1
                             raw_pct = (entry_price - f_close) / entry_price
-                            gross_pnl     += raw_pct * remaining_notional
-                            fees_paid     += remaining_notional * entry_fee_rate
+                            gross_pnl += raw_pct * remaining_notional
+                            fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
-                            duration = (j + 1) * tf_candle_min
+                            duration = (j + 1) * tf_min
                             exit_timestamp = f_ts; final_exit_price = f_close; break
-                    elif tp1_hit and not using_ema_trail:
+                    elif tp1_hit:
                         if f_low <= tp2:
                             outcome = 2
                             raw_pct = (entry_price - tp2) / entry_price
-                            gross_pnl     += raw_pct * remaining_notional
-                            fees_paid     += remaining_notional * entry_fee_rate
+                            gross_pnl += raw_pct * remaining_notional
+                            fees_paid += remaining_notional * entry_fee_rate
                             slippage_paid += remaining_notional * slippage_rate
                             remaining_notional = 0
-                            duration = (j + 1) * tf_candle_min
+                            duration = (j + 1) * tf_min
                             exit_timestamp = f_ts; final_exit_price = tp2; break
 
-            # Time-expired close
+            # Time-expired
             if remaining_notional > 0:
-                end_row  = slice_window[-1] if len(slice_window) > 0 else None
+                end_row = slice_window[-1] if len(slice_window) > 0 else None
                 if end_row is not None:
                     f_close = end_row[3]; f_ts = end_row[6]
                 else:
                     f_close = entry_price; f_ts = ts
                 outcome  = 3
                 raw_pct  = (f_close - entry_price) / entry_price if sig_val == 1 else (entry_price - f_close) / entry_price
-                gross_pnl     += raw_pct * remaining_notional
-                fees_paid     += remaining_notional * entry_fee_rate
+                gross_pnl += raw_pct * remaining_notional
+                fees_paid += remaining_notional * entry_fee_rate
                 slippage_paid += remaining_notional * slippage_rate
                 exit_timestamp = f_ts; final_exit_price = f_close
-                duration = min((j + 1) * tf_candle_min, forward_window * tf_candle_min) if len(slice_window) > 0 else 0
+                duration = min((j + 1) * tf_min, forward_window * tf_min) if len(slice_window) > 0 else 0
 
-            open_positions.append({"exit_time": exit_timestamp, "symbol": symbol, "margin": margin_required})
             net_pnl          = gross_pnl - fees_paid - slippage_paid
             current_balance += net_pnl
             risk_engine.update_pnl(net_pnl)
             record_trade(engine_states[strategy_used], net_pnl)
 
+            # Register position with close-time PnL for daily DD tracking
+            open_positions.append({
+                "exit_time": exit_timestamp,
+                "symbol":    symbol,
+                "margin":    margin_required,
+                "net_pnl":   net_pnl,
+            })
+
+            # Symbol cooldown: block this symbol for 1 full 4H candle after close
+            symbol_cooldown[symbol] = exit_timestamp + timedelta(minutes=240)
+
+            # Log
             ts_iso      = ts.isoformat()
             signal_type = "BUY" if sig_val == 1 else "SELL"
             ema_dist    = (row['ema_fast'] - row['ema_slow']) / row['ema_slow']
             ema200_dist = (entry_price - row['ema_trend']) / row['ema_trend']
             saved_tp2   = tp2 if tp2 != 0 else final_exit_price
 
-            trade = (
+            outcomes.append((
                 ts_iso, symbol, exec_tf, regime, strategy_used, eng_state_label,
                 signal_type,
                 float(entry_price), float(saved_tp2), float(current_sl), float(final_exit_price), int(outcome),
@@ -452,37 +442,32 @@ class HistoricalSimulator:
                 float(ema_dist), float(ema200_dist), volat_regime, ts.hour, ts.dayofweek,
                 float(row.get('context_score', 0)), float(notional), float(margin_required),
                 float(fees_paid), float(slippage_paid), float(net_pnl), float(current_balance)
-            )
-            outcomes.append(trade)
+            ))
 
-        # Summary
-        print(f"\n[MTF SUMMARY] Executed: {self.mtf_executed} | Blocked: {self.mtf_blocked} "
-              f"| Block rate: {self.mtf_blocked / max(self.mtf_executed + self.mtf_blocked, 1) * 100:.1f}%")
-
+        # Engine summary
         if gov_log:
-            print("\n[GOVERNANCE LOG SUMMARY]")
-            last_events = {}
+            print("\n[GOVERNANCE LOG]")
+            seen = {}
             for line in gov_log:
                 for eng in ENGINE_PRIORITY:
-                    if eng in line: last_events[eng] = line
-            for eng, line in last_events.items(): print(f"  {line}")
+                    if eng in line: seen[eng] = line
+            for eng, line in seen.items(): print(f"  {line}")
 
         print("\n[ENGINE FINAL STATES]")
         for eng in ENGINE_PRIORITY:
-            es = engine_states[eng]
-            pf = get_pf(es)
-            ra = es['recovery_attempts']
-            rs = es['recovery_successes']
-            rr = f"{rs}/{ra}" if ra > 0 else "N/A"
+            es = engine_states[eng]; pf = get_pf(es)
+            ra = es['recovery_attempts']; rs = es['recovery_successes']
             print(f"  {eng}: state={es['state']} | trades={es['trades']} | PF={pf:.2f} "
                   f"| active={es['ticks_active']} cd={es['ticks_cooldown']} rec={es['ticks_recovery']} "
-                  f"| recovery={rr}")
+                  f"| recovery={rs}/{ra if ra>0 else 'N/A'}")
+
+        print(f"\n[DAILY DD] Total breach days: {self.daily_dd_breaches}")
         return outcomes
 
-    # ------------------------------------------------------------------
+    # ── Persist ────────────────────────────────────────────────────────
     def save_trades(self, trades):
         if not trades: return
-        conn   = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.executemany('''
             INSERT INTO historical_trades (

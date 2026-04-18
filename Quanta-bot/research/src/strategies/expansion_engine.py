@@ -8,6 +8,11 @@ def generate_signal(row):
     close  = row['close']
     open_p = row['open']
     atr    = row['atr']
+    adx    = row.get('adx', 0)
+
+    # Phase 6 — ADX Momentum Gate
+    if adx < 22:
+        return {"signal": 0, "sl": 0, "tp1": 0, "tp2": 0, "strategy": "none"}
 
     candle_size = abs(close - open_p)
     signal = 0
