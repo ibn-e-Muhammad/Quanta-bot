@@ -29,15 +29,15 @@ from research.src.engine_governor import (
     ENGINE_PRIORITY
 )
 
-# Phase 5.5
-EXEC_TIMEFRAMES  = ["15m", "1h", "4h"]
+# Phase 5.6 — Institutional Timeframes only
+EXEC_TIMEFRAMES  = ["1h", "4h"]
 MACRO_TF         = "4h"
-MTF_BASE_MINUTES = 15          # smallest TF candle duration in minutes
-MIN_TIME_GAP     = 3           # candles of base TF → 45 minutes
-MIN_GAP_MINUTES  = MIN_TIME_GAP * MTF_BASE_MINUTES  # 45 min
+MTF_BASE_MINUTES = 60          # smallest TF candle duration in minutes (1h)
+MIN_TIME_GAP     = 3           # candles of base TF → 180 minutes
+MIN_GAP_MINUTES  = MIN_TIME_GAP * MTF_BASE_MINUTES  # 180 min
 
 # TF candle sizes for duration math
-TF_MINUTES = {"15m": 15, "1h": 60, "4h": 240}
+TF_MINUTES = {"1h": 60, "4h": 240}
 
 
 class HistoricalSimulator:
@@ -201,7 +201,7 @@ class HistoricalSimulator:
                     r['symbol'] = symbol
                 all_signals.extend(signals)
 
-        all_signals.sort(key=lambda x: x['datetime_utc'])
+        all_signals.sort(key=lambda x: (x['datetime_utc'], 0 if x.get('exec_tf') == '4h' else 1))
         trades = self.simulate_portfolio_trades(all_signals, watchlist)
         self.save_trades(trades)
 
@@ -273,8 +273,8 @@ class HistoricalSimulator:
             regime       = row['regime']
             volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
-            # --- Phase 5.5 FIXED Notional Cap (re-compute actual risk) ---
-            effective_risk = 0.005 * risk_mult   # 0.5% base risk
+            # --- Phase 5.6: 1.0% base risk ---
+            effective_risk = 0.01 * risk_mult
             price_risk     = abs(entry_price - sl)
             if price_risk == 0: continue
 

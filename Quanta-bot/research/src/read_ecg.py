@@ -106,5 +106,5 @@ def generate_ecg_report(db_path):
 
 if __name__ == "__main__":
     generate_ecg_report(
-        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v15/portfolio_results.sqlite"
+        "D:/Code/Projects/Quanta Bot/Quanta-bot/research/portfolio_backtests/v16/portfolio_results.sqlite"
     )
