@@ -117,3 +117,49 @@ Status: **PASS** (successful connection + real event ingestion).
 - Live trading methods use signed Testnet futures endpoints under:
   - `https://testnet.binancefuture.com`
 - Websocket smoke check is public-data only; full runtime order path requires valid credentials.
+
+## Phase 8.4 Concurrent Launch Instructions
+
+### 1) Install Phase 8.4 dependencies
+
+Use the dependency file at `production/requirements.txt`:
+
+```bash
+pip install -r production/requirements.txt
+```
+
+### 2) Start headless live runtime (Terminal A)
+
+```bash
+python production/main.py
+```
+
+This starts the orchestrator indefinitely and writes logs to:
+
+- `stdout`
+- `production/production.log`
+
+Boot logs include:
+
+- symbols loaded
+- telemetry DB path
+- Binance API status check
+
+### 3) Start Streamlit Control Room (Terminal B)
+
+```bash
+streamlit run production/src/dashboard.py
+```
+
+The dashboard is read-only and only queries telemetry data from `live_telemetry.sqlite`.
+
+### 4) Control Room safety behavior
+
+- Every SQLite dashboard query uses read-only URI mode (`mode=ro`)
+- Every query connection executes `PRAGMA query_only=ON`
+- Every query function is cached with `@st.cache_data(ttl=5)` to reduce lock pressure
+
+### 5) Shutdown sequence
+
+- Stop `production/main.py` with `Ctrl+C` (or `SIGTERM` in service mode)
+- The runtime triggers graceful shutdown and closes websocket loop cleanly
