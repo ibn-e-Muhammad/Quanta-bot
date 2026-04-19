@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,8 @@ class LiveTelemetryStore:
         """Open a SQLite connection with FK checks enabled."""
         conn = sqlite3.connect(self.db_path)
         conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
         return conn
 
     def initialize(self) -> None:
@@ -29,6 +33,19 @@ class LiveTelemetryStore:
     def schema_sql() -> str:
         """Return canonical DDL for the Phase 8.1 telemetry truth engine."""
         return """
+        CREATE TABLE IF NOT EXISTS processed_candles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            interval TEXT NOT NULL DEFAULT '4h',
+            open_time_ms INTEGER NOT NULL,
+            close_time_ms INTEGER,
+            processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(symbol, interval, open_time_ms)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_processed_candles_symbol_open
+            ON processed_candles(symbol, open_time_ms DESC);
+
         CREATE TABLE IF NOT EXISTS market_snapshots (
             snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -113,6 +130,9 @@ class LiveTelemetryStore:
         CREATE INDEX IF NOT EXISTS idx_live_executions_signal
             ON live_executions(signal_id);
 
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_live_executions_signal
+            ON live_executions(signal_id);
+
         CREATE TABLE IF NOT EXISTS positions (
             position_id TEXT PRIMARY KEY,
             signal_id TEXT,
@@ -134,6 +154,24 @@ class LiveTelemetryStore:
         CREATE INDEX IF NOT EXISTS idx_positions_symbol_status
             ON positions(symbol, status);
         """
+
+    async def initialize_async(self) -> None:
+        await asyncio.to_thread(self.initialize)
+
+    async def insert_market_snapshot_async(self, payload: dict[str, Any]) -> int | None:
+        return await asyncio.to_thread(self.insert_market_snapshot, payload)
+
+    async def insert_signal_async(self, payload: dict[str, Any]) -> None:
+        await asyncio.to_thread(self.insert_signal, payload)
+
+    async def insert_gate_evaluation_async(self, payload: dict[str, Any]) -> None:
+        await asyncio.to_thread(self.insert_gate_evaluation, payload)
+
+    async def insert_execution_async(self, payload: dict[str, Any]) -> None:
+        await asyncio.to_thread(self.insert_execution, payload)
+
+    async def upsert_position_async(self, payload: dict[str, Any]) -> None:
+        await asyncio.to_thread(self.upsert_position, payload)
 
     def insert_market_snapshot(self, payload: dict[str, Any]) -> int | None:
         """Insert one market snapshot row; returns rowid or None if deduplicated."""
@@ -213,7 +251,7 @@ class LiveTelemetryStore:
     def insert_execution(self, payload: dict[str, Any]) -> None:
         """Insert one live execution record."""
         sql = """
-        INSERT OR REPLACE INTO live_executions (
+        INSERT OR IGNORE INTO live_executions (
             execution_id, signal_id, timestamp, symbol, side,
             expected_price, actual_fill_price, slippage_pct, latency_ms,
             exchange_order_id, order_status, raw_exchange_json
@@ -236,6 +274,69 @@ class LiveTelemetryStore:
         with self.connect() as conn:
             conn.execute(sql, params)
             conn.commit()
+
+    def claim_candle_processing(
+        self,
+        *,
+        symbol: str,
+        interval: str,
+        open_time_ms: int,
+        close_time_ms: int | None,
+    ) -> bool:
+        """Claim exactly-once processing ownership for a closed candle."""
+        sql = """
+        INSERT OR IGNORE INTO processed_candles (
+            symbol, interval, open_time_ms, close_time_ms
+        ) VALUES (?, ?, ?, ?)
+        """
+        with self.connect() as conn:
+            cur = conn.execute(sql, (symbol, interval, open_time_ms, close_time_ms))
+            conn.commit()
+            return cur.rowcount > 0
+
+    async def claim_candle_processing_async(
+        self,
+        *,
+        symbol: str,
+        interval: str,
+        open_time_ms: int,
+        close_time_ms: int | None,
+    ) -> bool:
+        return await asyncio.to_thread(
+            self.claim_candle_processing,
+            symbol=symbol,
+            interval=interval,
+            open_time_ms=open_time_ms,
+            close_time_ms=close_time_ms,
+        )
+
+    def load_last_processed_open_times(self, interval: str = "4h") -> dict[str, int]:
+        """Return latest processed open_time per symbol for restart recovery."""
+        sql = """
+        SELECT symbol, MAX(open_time_ms) AS max_open
+        FROM processed_candles
+        WHERE interval = ?
+        GROUP BY symbol
+        """
+        with self.connect() as conn:
+            rows = conn.execute(sql, (interval,)).fetchall()
+        return {str(symbol): int(max_open) for symbol, max_open in rows if max_open is not None}
+
+    async def load_last_processed_open_times_async(self, interval: str = "4h") -> dict[str, int]:
+        return await asyncio.to_thread(self.load_last_processed_open_times, interval)
+
+    def has_execution_for_signal(self, signal_id: str) -> bool:
+        """Check whether a signal has already been executed (idempotency guard)."""
+        sql = "SELECT 1 FROM live_executions WHERE signal_id = ? LIMIT 1"
+        with self.connect() as conn:
+            row = conn.execute(sql, (signal_id,)).fetchone()
+        return row is not None
+
+    async def has_execution_for_signal_async(self, signal_id: str) -> bool:
+        return await asyncio.to_thread(self.has_execution_for_signal, signal_id)
+
+    def utc_now_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
 
     def upsert_position(self, payload: dict[str, Any]) -> None:
         """Upsert one position lifecycle record."""
