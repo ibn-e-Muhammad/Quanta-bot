@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from production.src.live_telemetry import default_db_path
+from live_telemetry import default_db_path
 
 
 def resolve_db_path() -> str:

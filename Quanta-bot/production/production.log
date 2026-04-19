@@ -1,0 +1,11 @@
+2026-04-19 16:22:53 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-19 16:22:53 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-19 16:22:53 | INFO | quanta.production | Boot Sequence | symbols loaded=30
+2026-04-19 16:22:53 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-19 16:22:54 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-19 16:37:30 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | symbols loaded=30
+2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-19 16:37:41 | INFO | quanta.production | Boot Sequence | api_status=OK

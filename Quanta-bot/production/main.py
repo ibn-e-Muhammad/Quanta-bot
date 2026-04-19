@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from production.src.live_orchestrator import LiveOrchestrator
+from src.live_orchestrator import LiveOrchestrator
 
 
 def configure_logging(log_file: Path) -> logging.Logger:
