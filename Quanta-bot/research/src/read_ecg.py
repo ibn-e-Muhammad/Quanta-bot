@@ -284,9 +284,37 @@ def _print_single_report(db_path, df, phase61, phase62, phase7, print_report=Tru
             print(f" Avg ML Score (Executed): {phase7.get('avg_ml_score_executed', 0.0):.4f}")
             print(f" Avg ML Score (Rejected): {phase7.get('avg_ml_score_rejected', 0.0):.4f}")
             print(f" ML Acceptance Rate     : {phase7.get('ml_acceptance_rate', 0.0) * 100.0:.2f}%")
+            print(f" Avg Threshold Modifier : {phase7.get('avg_threshold_modifier', 0.0):.4f}")
             print(f" ML Filtered Trades     : {phase7.get('ml_filtered_trades', 0)}")
             print(f" ML Fallback Count      : {phase7.get('ml_fallback_count', 0)}")
             print(f" ML Inference Errors    : {phase7.get('ml_inference_error_count', 0)}")
+            by_regime = phase7.get("acceptance_by_regime", {}) or {}
+            if by_regime:
+                print(" Acceptance by Regime   :")
+                for rk, rv in sorted(by_regime.items()):
+                    print(
+                        f"   - {rk}: scored={rv.get('candidates_scored', 0)} "
+                        f"accepted={rv.get('accepted', 0)} "
+                        f"rate={rv.get('acceptance_rate', 0.0) * 100.0:.2f}%"
+                    )
+            print(" [PHASE 7.4 MARKET REGIME GATE]")
+            print(
+                f" SAFE/WARN/NO_TRADE     : {phase7.get('phase74_safe_count', 0)}"
+                f"/{phase7.get('phase74_warning_count', 0)}"
+                f"/{phase7.get('phase74_no_trade_count', 0)}"
+            )
+            print(f" Avg Risk Pressure      : {phase7.get('phase74_avg_risk_pressure', 0.0):.4f}")
+            print(f" Warning Penalties      : {phase7.get('phase74_warning_penalty_count', 0)}")
+            print(f" Trend Overrides        : {phase7.get('phase74_trend_override_count', 0)}")
+            veto_share = float(phase7.get('phase74_veto_share_ml_valid', 0.0) or 0.0)
+            print(f" Veto Share (ML-valid)  : {veto_share * 100.0:.2f}%")
+            if veto_share > 0.10:
+                print(" [ALERT] Veto share > 10% (possible over-filtering)")
+            reason_map = phase7.get("phase74_reason_breakdown", {}) or {}
+            if reason_map:
+                print(" Gate Reasons           :")
+                for k, v in sorted(reason_map.items(), key=lambda x: x[1], reverse=True)[:5]:
+                    print(f"   - {k}: {v}")
             dist = phase7.get("ml_score_distribution", {})
             print(
                 f" ML Score Distribution  : min={dist.get('min', 0.0):.4f} "

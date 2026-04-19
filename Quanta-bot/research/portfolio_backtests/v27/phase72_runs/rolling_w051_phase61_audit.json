@@ -1,0 +1,71 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 101195.20811134473,
+  "total_signals_generated": 36,
+  "total_signals_executed": 12,
+  "rejected_concurrency_lock": 1,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 2,
+  "rejected_low_priority": 0,
+  "rejected_locks": 3,
+  "rejected_other": 0,
+  "rejected_signals": 24,
+  "duplicate_signal_rejection_rate": 0.6666666666666666,
+  "avg_executed_score": 0.4002813511929746,
+  "avg_rejected_score": 0.3964387332619282,
+  "avg_all_signal_score": 0.3977196059056103,
+  "selection_quality_ratio": 1.006441083741726,
+  "ml_filtered_trades": 21,
+  "ml_candidates_scored": 33,
+  "avg_ml_score_executed": 0.5908892894176349,
+  "avg_ml_score_rejected": 0.47983149808422176,
+  "ml_acceptance_rate": 0.36363636363636365,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 28,
+      "accepted": 9,
+      "acceptance_rate": 0.32142857142857145
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 5,
+      "accepted": 3,
+      "acceptance_rate": 0.6
+    }
+  },
+  "avg_threshold_modifier": 0.03363636363636364,
+  "ml_score_distribution": {
+    "min": 0.35068873731886363,
+    "max": 0.6629182240502899,
+    "mean": 0.5202161494781902,
+    "std": 0.06943489741531675
+  },
+  "win_rate": 50.0,
+  "profit_factor": 1.4565066002344356,
+  "net_pnl_pct": 1.195208111344735,
+  "max_drawdown_pct": -1.0637450474948464,
+  "cluster_event_count": 3,
+  "cluster_event_total_size": 10,
+  "cluster_event_avg_size": 3.3333333333333335,
+  "same_candle_multi_symbol_activations": 10,
+  "co_activation_pairs": {
+    "ADAUSDT|LDOUSDT": 1,
+    "ADAUSDT|ATOMUSDT": 1,
+    "ADAUSDT|DOGEUSDT": 1,
+    "ADAUSDT|FILUSDT": 1,
+    "ADAUSDT|SEIUSDT": 1,
+    "ADAUSDT|TIAUSDT": 1,
+    "ATOMUSDT|DOGEUSDT": 1,
+    "ATOMUSDT|FILUSDT": 1,
+    "ATOMUSDT|SEIUSDT": 1,
+    "ATOMUSDT|TIAUSDT": 1,
+    "DOGEUSDT|FILUSDT": 1,
+    "DOGEUSDT|SEIUSDT": 1,
+    "DOGEUSDT|TIAUSDT": 1,
+    "FILUSDT|SEIUSDT": 1,
+    "FILUSDT|TIAUSDT": 1,
+    "SEIUSDT|TIAUSDT": 1,
+    "ARBUSDT|LDOUSDT": 1
+  }
+}

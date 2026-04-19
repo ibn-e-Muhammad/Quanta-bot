@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import math
+from collections import deque, defaultdict
 from pathlib import Path
 from datetime import timedelta
 from itertools import combinations
@@ -67,6 +68,13 @@ class HistoricalSimulator:
         self.daily_dd_breaches = 0
         self.initial_balance = float(self.config_override.get("initial_balance", 10000.0))
         self.ml_threshold = float(self.config_override.get("ml_threshold", ML_THRESHOLD))
+        self.simulation_start = self._parse_optional_timestamp(self.config_override.get("simulation_start"))
+        self.simulation_end = self._parse_optional_timestamp(self.config_override.get("simulation_end"))
+        symbol_subset = self.config_override.get("symbol_subset")
+        self.symbol_subset = set(symbol_subset) if symbol_subset else None
+        self.regime_filter = self.config_override.get("regime_filter")
+        self.shuffle_ml = bool(self.config_override.get("shuffle_ml", False))
+        self.shuffle_seed = int(self.config_override.get("shuffle_seed", 42))
         self.audit_metrics = self._init_audit_metrics()
 
         self.setup_db()
@@ -96,6 +104,18 @@ class HistoricalSimulator:
             "ml_acceptance_rate": 0.0,
             "ml_fallback_count": 0,
             "ml_inference_error_count": 0,
+            "acceptance_by_regime": {},
+            "avg_threshold_modifier": 0.0,
+            "phase74_safe_count": 0,
+            "phase74_warning_count": 0,
+            "phase74_no_trade_count": 0,
+            "phase74_warning_penalty_count": 0,
+            "phase74_trend_override_count": 0,
+            "phase74_avg_risk_pressure": 0.0,
+            "phase74_veto_share_ml_valid": 0.0,
+            "phase74_blocked_ml_valid_count": 0,
+            "phase74_ml_valid_candidates": 0,
+            "phase74_reason_breakdown": {},
             "ml_score_distribution": {
                 "min": 0.0,
                 "max": 0.0,
@@ -130,6 +150,36 @@ class HistoricalSimulator:
             return [0.5 for _ in values]
         return [(v - v_min) / (v_max - v_min) for v in values]
 
+    @staticmethod
+    def _parse_optional_timestamp(value):
+        if value is None:
+            return None
+        ts = pd.to_datetime(value, errors="coerce", utc=False)
+        if pd.isna(ts):
+            return None
+        return ts
+
+    @staticmethod
+    def _matches_regime_filter(regime_filter, row):
+        if not regime_filter:
+            return True
+
+        name = str(regime_filter).upper().strip()
+        adx = float(row.get("adx", 0.0) or 0.0)
+        close_val = float(row.get("close", 0.0) or 0.0)
+        atr = float(row.get("atr", 0.0) or 0.0)
+        atr_ratio = (atr / close_val) if close_val else 0.0
+
+        if name == "TRENDING":
+            return adx > 25.0
+        if name == "RANGING":
+            return adx <= 25.0
+        if name == "HIGH_VOLATILITY":
+            return atr_ratio > 0.02
+        if name == "LOW_VOLATILITY":
+            return atr_ratio <= 0.02
+        return True
+
     def _estimate_notional_for_scoring(self, current_balance, entry_price, sl_price, risk_mult):
         price_risk = abs(entry_price - sl_price)
         if entry_price <= 0 or price_risk <= 0:
@@ -140,6 +190,157 @@ class HistoricalSimulator:
         notional = position_size * entry_price
         max_notional = current_balance * MAX_NOTIONAL_MULT
         return max(0.0, min(notional, max_notional))
+
+    def _build_ml_features(self, candidate):
+        row = candidate["row"]
+        ts = candidate["ts"]
+        ema_trend_val = float(row.get("ema_trend", 0.0) or 0.0)
+        close_val = float(row.get("close", 0.0) or 0.0)
+        ema_distance = abs((close_val - ema_trend_val) / ema_trend_val) if ema_trend_val else 0.0
+        candle_range = abs(close_val - float(row.get("target_sl", close_val))) / close_val if close_val else 0.0
+        ema_slow_val = float(row.get("ema_slow", 0.0) or 0.0)
+        ema_fast_val = float(row.get("ema_fast", 0.0) or 0.0)
+        trend_strength = abs((ema_fast_val - ema_slow_val) / ema_slow_val) if ema_slow_val else 0.0
+        atr_ratio_live = (float(row.get("atr", 0.0)) / close_val) if close_val else 0.0
+        if atr_ratio_live < 0.008:
+            volatility_regime = 0.0
+        elif atr_ratio_live < 0.02:
+            volatility_regime = 1.0
+        else:
+            volatility_regime = 2.0
+
+        return {
+            "trade_direction": 1.0 if row.get("signal") == 1 else -1.0,
+            "atr_value": float(row.get("atr", 0.0)),
+            "adx_value": float(row.get("adx", 0.0)),
+            "ema_distance": float(ema_distance),
+            "cost_estimate": float(candidate.get("estimated_cost", 0.0)),
+            "volatility_regime": volatility_regime,
+            "candle_range": float(candle_range),
+            "trend_strength": float(trend_strength),
+            "hour_of_day": float(ts.hour),
+            "day_of_week": float(ts.dayofweek),
+        }
+
+    @staticmethod
+    def _get_regime_threshold(adx, atr_ratio):
+        is_trending = float(adx) > 25.0
+        is_high_vol = float(atr_ratio) > 1.0
+
+        if is_trending and is_high_vol:
+            return 0.50
+        if is_trending and (not is_high_vol):
+            return 0.52
+        if (not is_trending) and is_high_vol:
+            return 0.54
+        return 0.56
+
+    @staticmethod
+    def _get_regime_key(adx, atr_ratio):
+        is_trending = float(adx) > 25.0
+        is_high_vol = float(atr_ratio) > 1.0
+        if is_trending and is_high_vol:
+            return "TRENDING_HIGH_VOL"
+        if is_trending and (not is_high_vol):
+            return "TRENDING_LOW_VOL"
+        if (not is_trending) and is_high_vol:
+            return "RANGING_HIGH_VOL"
+        return "RANGING_LOW_VOL"
+
+    @staticmethod
+    def _amplify_ml_score(raw_ml_prob):
+        adjusted = float(raw_ml_prob) + ((float(raw_ml_prob) - 0.50) * 0.15)
+        return max(0.0, min(1.0, adjusted))
+
+    def _evaluate_market_regime_gate(self, candidate):
+        row = candidate["row"]
+        close_price = float(row.get("close", 0.0) or 0.0)
+        atr_value = float(row.get("atr", 0.0) or 0.0)
+        adx_value = float(row.get("adx", 0.0) or 0.0)
+        high_val = float(row.get("high", close_price) or close_price)
+        low_val = float(row.get("low", close_price) or close_price)
+
+        if close_price <= 0:
+            return {
+                "risk_pressure": 1.0,
+                "regime": "NO_TRADE",
+                "trade_allowed": False,
+                "ml_penalty": None,
+                "reason": "invalid_close_price",
+                "scores": {
+                    "vol_score": 1.0,
+                    "trend_score": 0.0,
+                    "volume_score": 0.0,
+                    "spread_score": 1.0,
+                },
+            }
+
+        atr_ratio = atr_value / close_price
+        vol_score = min(1.0, (atr_ratio / 0.05))
+        trend_score = min(1.0, (adx_value / 50.0))
+
+        current_notional = float(candidate.get("current_notional", 0.0) or 0.0)
+        baseline_average_notional = float(candidate.get("baseline_average_notional", 0.0) or 0.0)
+        if baseline_average_notional <= 0:
+            volume_score = 1.0
+        else:
+            volume_score = min(1.0, (current_notional / baseline_average_notional))
+
+        spread_ratio = (high_val - low_val) / close_price if close_price else 0.0
+        spread_score = min(1.0, (spread_ratio / 0.02))
+
+        risk_pressure = (
+            (0.35 * vol_score)
+            + (0.25 * spread_score)
+            + (0.25 * (1.0 - volume_score))
+            + (0.15 * (1.0 - trend_score))
+        )
+
+        if risk_pressure < 0.40:
+            regime = "SAFE"
+            trade_allowed = True
+            ml_penalty = 0.0
+            reason = "safe_low_pressure"
+        elif risk_pressure < 0.65:
+            regime = "WARNING"
+            trade_allowed = True
+            ml_penalty = 0.05
+            reason = "warning_elevated_pressure"
+        else:
+            regime = "NO_TRADE"
+            trade_allowed = False
+            ml_penalty = None
+            reason = "no_trade_high_pressure"
+
+        override_applied = False
+        if trend_score > 0.60 and vol_score < 0.80:
+            if regime == "NO_TRADE":
+                regime = "WARNING"
+                trade_allowed = True
+                ml_penalty = 0.05
+                reason = "trend_override_no_trade_to_warning"
+                override_applied = True
+            elif regime == "WARNING":
+                regime = "SAFE"
+                trade_allowed = True
+                ml_penalty = 0.0
+                reason = "trend_override_warning_to_safe"
+                override_applied = True
+
+        return {
+            "risk_pressure": float(risk_pressure),
+            "regime": regime,
+            "trade_allowed": bool(trade_allowed),
+            "ml_penalty": ml_penalty,
+            "reason": reason,
+            "override_applied": override_applied,
+            "scores": {
+                "vol_score": float(vol_score),
+                "trend_score": float(trend_score),
+                "volume_score": float(volume_score),
+                "spread_score": float(spread_score),
+            },
+        }
 
     def _score_signal_buffer(self, signal_buffer):
         if not signal_buffer:
@@ -268,11 +469,26 @@ class HistoricalSimulator:
         return signals
 
     # ── Portfolio run ──────────────────────────────────────────────────
-    def run_portfolio_simulation(self, watchlist):
+    def run_portfolio_simulation(self, watchlist, simulation_start=None, simulation_end=None, symbol_subset=None):
         self.audit_metrics = self._init_audit_metrics()
         reset_ml_runtime_metrics()
         self.price_data = {}
         all_signals     = []
+
+        start_ts = self._parse_optional_timestamp(simulation_start)
+        end_ts = self._parse_optional_timestamp(simulation_end)
+        if start_ts is None:
+            start_ts = self.simulation_start
+        if end_ts is None:
+            end_ts = self.simulation_end
+
+        if symbol_subset is None:
+            symbol_subset = self.symbol_subset
+        elif symbol_subset:
+            symbol_subset = set(symbol_subset)
+
+        if symbol_subset:
+            watchlist = [s for s in watchlist if s in symbol_subset]
 
         for symbol in watchlist:
             tf_data  = self.load_all_tfs(symbol)
@@ -285,15 +501,35 @@ class HistoricalSimulator:
 
                 signals = self.generate_signals_for_tf(df_exec, df_macro, exec_tf)
                 key = f"{symbol}_{exec_tf}"
+                if "volume" in df_exec.columns:
+                    vol_series = pd.to_numeric(df_exec["volume"], errors="coerce").fillna(0.0)
+                    notional_series = pd.to_numeric(df_exec["close"], errors="coerce").fillna(0.0) * vol_series
+                else:
+                    notional_series = pd.Series(0.0, index=df_exec.index)
+                baseline_notional = notional_series.rolling(20, min_periods=5).mean().shift(1)
+                baseline_notional = baseline_notional.fillna(notional_series.expanding().mean().shift(1))
+                baseline_notional = baseline_notional.fillna(0.0)
+
                 self.price_data[key] = {
                     'prices':  df_exec[['open', 'high', 'low', 'close', 'ema_fast', 'ema_slow', 'datetime_utc']].values,
                     'idx_map': {ts: i for i, ts in enumerate(df_exec['datetime_utc'])},
+                    'notional_map': {
+                        ts: float(v) for ts, v in zip(df_exec['datetime_utc'], notional_series.tolist())
+                    },
+                    'baseline_notional_map': {
+                        ts: float(v) for ts, v in zip(df_exec['datetime_utc'], baseline_notional.tolist())
+                    },
                 }
                 for r in signals:
                     r['symbol'] = symbol
                 all_signals.extend(signals)
 
         all_signals.sort(key=lambda x: x['datetime_utc'])
+        if start_ts is not None:
+            all_signals = [s for s in all_signals if s["datetime_utc"] >= start_ts]
+        if end_ts is not None:
+            all_signals = [s for s in all_signals if s["datetime_utc"] < end_ts]
+
         trades = self.simulate_portfolio_trades(all_signals, watchlist)
         self.save_trades(trades)
 
@@ -337,6 +573,13 @@ class HistoricalSimulator:
         ml_executed_probs = []
         ml_rejected_probs = []
         all_ml_probs = []
+        recent_ml_decisions = deque(maxlen=100)
+        global_threshold_modifier = 0.0
+        threshold_modifier_values = []
+        regime_stats = defaultdict(lambda: {"candidates_scored": 0, "accepted": 0})
+        phase74_risk_pressures = []
+        phase74_reason_counts = defaultdict(int)
+        shuffle_rng = np.random.default_rng(self.shuffle_seed) if self.shuffle_ml else None
 
         def flush_cluster_metrics(symbols_at_ts):
             if len(symbols_at_ts) < 2:
@@ -353,6 +596,7 @@ class HistoricalSimulator:
         n = len(all_signals)
         while idx < n:
             ts = all_signals[idx]["datetime_utc"]
+            decisions_this_buffer = []
             batch_rows = []
             while idx < n and all_signals[idx]["datetime_utc"] == ts:
                 batch_rows.append(all_signals[idx])
@@ -377,6 +621,9 @@ class HistoricalSimulator:
                 symbol = row["symbol"]
                 strategy_used = row.get("strategy_used", "none")
                 if strategy_used not in ENGINE_PRIORITY:
+                    continue
+
+                if not self._matches_regime_filter(self.regime_filter, row):
                     continue
 
                 entry_price = row["close"]
@@ -418,6 +665,8 @@ class HistoricalSimulator:
                     "adx": row.get("adx", 0.0),
                     "price_distance_from_ema": ema_distance,
                     "estimated_cost": estimated_cost,
+                    "current_notional": float(self.price_data.get(f"{symbol}_{row.get('exec_tf', '4h')}", {}).get("notional_map", {}).get(ts, 0.0)),
+                    "baseline_average_notional": float(self.price_data.get(f"{symbol}_{row.get('exec_tf', '4h')}", {}).get("baseline_notional_map", {}).get(ts, 0.0)),
                 })
 
             flush_cluster_metrics(symbols_at_ts)
@@ -432,6 +681,31 @@ class HistoricalSimulator:
 
             slots_available_start = max(0, MAX_CONCURRENT - len(open_positions))
             executed_this_ts = 0
+            shuffled_prob_map = {}
+            if self.shuffle_ml and slots_available_start > 0:
+                pre_ml_candidates = []
+                for candidate in signal_buffer:
+                    symbol = candidate["symbol"]
+                    ts = candidate["ts"]
+                    cooldown_until = symbol_cooldown.get(symbol)
+                    if cooldown_until is not None and ts < cooldown_until:
+                        continue
+                    if any(p["symbol"] == symbol for p in open_positions):
+                        continue
+                    if slots_available_start <= 0 or len(open_positions) >= MAX_CONCURRENT:
+                        continue
+                    pre_ml_candidates.append(candidate)
+
+                if pre_ml_candidates:
+                    pre_ml_probs = [
+                        float(predict_trade_quality(self._build_ml_features(c)))
+                        for c in pre_ml_candidates
+                    ]
+                    if len(pre_ml_probs) > 1 and shuffle_rng is not None:
+                        shuffle_rng.shuffle(pre_ml_probs)
+                    shuffled_prob_map = {
+                        id(c): p for c, p in zip(pre_ml_candidates, pre_ml_probs)
+                    }
 
             for candidate in signal_buffer:
                 row = candidate["row"]
@@ -465,44 +739,71 @@ class HistoricalSimulator:
                     rejected_scores.append(score)
                     continue
 
-                ema_trend_val = float(row.get("ema_trend", 0.0) or 0.0)
-                close_val = float(row.get("close", 0.0) or 0.0)
-                ema_distance = abs((close_val - ema_trend_val) / ema_trend_val) if ema_trend_val else 0.0
-                candle_range = abs(close_val - float(row.get("target_sl", close_val))) / close_val if close_val else 0.0
-                ema_slow_val = float(row.get("ema_slow", 0.0) or 0.0)
-                ema_fast_val = float(row.get("ema_fast", 0.0) or 0.0)
-                trend_strength = abs((ema_fast_val - ema_slow_val) / ema_slow_val) if ema_slow_val else 0.0
-                atr_ratio_live = (float(row.get("atr", 0.0)) / close_val) if close_val else 0.0
-                if atr_ratio_live < 0.008:
-                    volatility_regime = 0.0
-                elif atr_ratio_live < 0.02:
-                    volatility_regime = 1.0
+                if self.shuffle_ml:
+                    raw_ml_prob = shuffled_prob_map.get(id(candidate))
+                    if raw_ml_prob is None:
+                        raw_ml_prob = float(predict_trade_quality(self._build_ml_features(candidate)))
                 else:
-                    volatility_regime = 2.0
+                    raw_ml_prob = float(predict_trade_quality(self._build_ml_features(candidate)))
 
-                ml_features = {
-                    "trade_direction": 1.0 if row.get("signal") == 1 else -1.0,
-                    "atr_value": float(row.get("atr", 0.0)),
-                    "adx_value": float(row.get("adx", 0.0)),
-                    "ema_distance": float(ema_distance),
-                    "cost_estimate": float(candidate.get("estimated_cost", 0.0)),
-                    "volatility_regime": volatility_regime,
-                    "candle_range": float(candle_range),
-                    "trend_strength": float(trend_strength),
-                    "hour_of_day": float(ts.hour),
-                    "day_of_week": float(ts.dayofweek),
-                }
-                ml_prob = predict_trade_quality(ml_features)
-                self.audit_metrics["ml_candidates_scored"] += 1
-                all_ml_probs.append(float(ml_prob))
+                adx_val = float(row.get("adx", 0.0) or 0.0)
+                atr_ratio_val = float(candidate.get("atr_ratio", 0.0) or 0.0)
+                regime_key = self._get_regime_key(adx_val, atr_ratio_val)
+                regime_stats[regime_key]["candidates_scored"] += 1
 
-                if ml_prob < self.ml_threshold:
+                base_threshold = self._get_regime_threshold(adx_val, atr_ratio_val)
+                baseline_offset = float(self.ml_threshold) - float(ML_THRESHOLD)
+                effective_threshold = base_threshold + baseline_offset + global_threshold_modifier
+                effective_threshold = max(0.0, min(1.0, effective_threshold))
+                threshold_modifier_values.append(global_threshold_modifier)
+
+                adjusted_score = self._amplify_ml_score(raw_ml_prob)
+
+                gate = self._evaluate_market_regime_gate(candidate)
+                phase74_risk_pressures.append(float(gate.get("risk_pressure", 0.0)))
+                gate_reason = str(gate.get("reason", "unknown"))
+                phase74_reason_counts[gate_reason] += 1
+                if bool(gate.get("override_applied", False)):
+                    self.audit_metrics["phase74_trend_override_count"] += 1
+
+                gate_regime = gate.get("regime", "SAFE")
+                if gate_regime == "SAFE":
+                    self.audit_metrics["phase74_safe_count"] += 1
+                elif gate_regime == "WARNING":
+                    self.audit_metrics["phase74_warning_count"] += 1
+                else:
+                    self.audit_metrics["phase74_no_trade_count"] += 1
+
+                would_pass_without_gate = adjusted_score >= effective_threshold
+                if would_pass_without_gate:
+                    self.audit_metrics["phase74_ml_valid_candidates"] += 1
+
+                if not gate.get("trade_allowed", True):
+                    if would_pass_without_gate:
+                        self.audit_metrics["phase74_blocked_ml_valid_count"] += 1
                     self.audit_metrics["ml_filtered_trades"] += 1
                     rejected_scores.append(score)
-                    ml_rejected_probs.append(ml_prob)
+                    ml_rejected_probs.append(raw_ml_prob)
                     continue
 
-                ml_executed_probs.append(ml_prob)
+                warning_penalty = float(gate.get("ml_penalty", 0.0) or 0.0)
+                if warning_penalty > 0:
+                    self.audit_metrics["phase74_warning_penalty_count"] += 1
+                    adjusted_score = max(0.0, adjusted_score - warning_penalty)
+
+                self.audit_metrics["ml_candidates_scored"] += 1
+                all_ml_probs.append(float(raw_ml_prob))
+
+                if adjusted_score < effective_threshold:
+                    self.audit_metrics["ml_filtered_trades"] += 1
+                    rejected_scores.append(score)
+                    ml_rejected_probs.append(raw_ml_prob)
+                    decisions_this_buffer.append(0)
+                    continue
+
+                regime_stats[regime_key]["accepted"] += 1
+                decisions_this_buffer.append(1)
+                ml_executed_probs.append(raw_ml_prob)
 
                 sig_val = row["signal"]
                 entry_price = row["close"]
@@ -703,6 +1004,16 @@ class HistoricalSimulator:
                     float(fees_paid), float(slippage_paid), float(net_pnl), float(current_balance)
                 ))
 
+            if decisions_this_buffer:
+                recent_ml_decisions.extend(decisions_this_buffer)
+                denom = 100 if len(recent_ml_decisions) >= 100 else max(1, len(recent_ml_decisions))
+                current_acceptance = (sum(recent_ml_decisions) / float(denom)) if denom else 0.0
+                if current_acceptance > 0.45:
+                    global_threshold_modifier += 0.01
+                elif current_acceptance < 0.25:
+                    global_threshold_modifier -= 0.01
+                global_threshold_modifier = max(-0.02, min(0.04, global_threshold_modifier))
+
         total_locks = (
             self.audit_metrics["rejected_concurrency_lock"]
             + self.audit_metrics["rejected_symbol_open_lock"]
@@ -743,6 +1054,33 @@ class HistoricalSimulator:
         runtime_ml = get_ml_runtime_metrics()
         self.audit_metrics["ml_fallback_count"] = int(runtime_ml.get("ml_fallback_count", 0))
         self.audit_metrics["ml_inference_error_count"] = int(runtime_ml.get("ml_inference_error_count", 0))
+        self.audit_metrics["avg_threshold_modifier"] = (
+            sum(threshold_modifier_values) / len(threshold_modifier_values)
+            if threshold_modifier_values else 0.0
+        )
+        self.audit_metrics["phase74_avg_risk_pressure"] = (
+            sum(phase74_risk_pressures) / len(phase74_risk_pressures)
+            if phase74_risk_pressures else 0.0
+        )
+        ml_valid_candidates = int(self.audit_metrics.get("phase74_ml_valid_candidates", 0))
+        blocked_ml_valid = int(self.audit_metrics.get("phase74_blocked_ml_valid_count", 0))
+        self.audit_metrics["phase74_veto_share_ml_valid"] = (
+            (blocked_ml_valid / ml_valid_candidates) if ml_valid_candidates else 0.0
+        )
+        self.audit_metrics["phase74_reason_breakdown"] = dict(
+            sorted(phase74_reason_counts.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        acceptance_by_regime = {}
+        for k, v in regime_stats.items():
+            scored = int(v.get("candidates_scored", 0))
+            accepted = int(v.get("accepted", 0))
+            acceptance_by_regime[k] = {
+                "candidates_scored": scored,
+                "accepted": accepted,
+                "acceptance_rate": (accepted / scored) if scored else 0.0,
+            }
+        self.audit_metrics["acceptance_by_regime"] = acceptance_by_regime
 
         if all_ml_probs:
             probs_arr = np.array(all_ml_probs, dtype=float)
@@ -821,8 +1159,20 @@ class HistoricalSimulator:
         print(f"  ML accept rate    : {self.audit_metrics['ml_acceptance_rate']:.2%}")
         print(f"  Avg ML exec prob  : {self.audit_metrics['avg_ml_score_executed']:.4f}")
         print(f"  Avg ML rej prob   : {self.audit_metrics['avg_ml_score_rejected']:.4f}")
+        print(f"  Avg threshold mod : {self.audit_metrics['avg_threshold_modifier']:.4f}")
+        print(f"  Phase7.4 risk avg : {self.audit_metrics['phase74_avg_risk_pressure']:.4f}")
+        print(f"  Phase7.4 SAFE/WARN/NO: {self.audit_metrics['phase74_safe_count']}/{self.audit_metrics['phase74_warning_count']}/{self.audit_metrics['phase74_no_trade_count']}")
+        print(f"  Phase7.4 veto share  : {self.audit_metrics['phase74_veto_share_ml_valid']:.2%}")
         print(f"  ML fallback count : {self.audit_metrics['ml_fallback_count']}")
         print(f"  ML infer err count: {self.audit_metrics['ml_inference_error_count']}")
+        if self.audit_metrics.get("acceptance_by_regime"):
+            print("  Acceptance/regime :")
+            for rk, rv in sorted(self.audit_metrics["acceptance_by_regime"].items()):
+                print(
+                    f"    - {rk}: scored={rv.get('candidates_scored', 0)} "
+                    f"accepted={rv.get('accepted', 0)} "
+                    f"rate={rv.get('acceptance_rate', 0.0):.2%}"
+                )
         ml_dist = self.audit_metrics.get("ml_score_distribution", {})
         print(
             f"  ML prob dist      : min={ml_dist.get('min', 0.0):.4f} "

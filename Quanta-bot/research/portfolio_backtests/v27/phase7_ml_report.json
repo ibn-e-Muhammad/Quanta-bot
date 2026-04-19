@@ -5,91 +5,175 @@
     {
       "tier_name": "TIER_10K",
       "initial_balance": 10000.0,
-      "final_balance": 22692.268881725922,
-      "trade_count": 321,
-      "win_rate": 64.48598130841121,
-      "profit_factor": 2.2577994192899595,
-      "net_pnl_pct": 126.92268881725927,
-      "max_drawdown_pct": -3.544978574813567,
-      "ml_filtered_trades": 532,
-      "ml_candidates_scored": 853,
-      "avg_ml_score_executed": 0.5744060963120541,
-      "avg_ml_score_rejected": 0.4369780710772151,
-      "ml_acceptance_rate": 0.37631887456037516,
+      "final_balance": 19757.533768398414,
+      "trade_count": 281,
+      "win_rate": 61.92170818505338,
+      "profit_factor": 2.0846822991812806,
+      "net_pnl_pct": 97.57533768398412,
+      "max_drawdown_pct": -3.5347307197775892,
+      "ml_filtered_trades": 622,
+      "ml_candidates_scored": 821,
+      "avg_ml_score_executed": 0.5784808984300239,
+      "avg_ml_score_rejected": 0.45088293747806135,
+      "ml_acceptance_rate": 0.24238733252131547,
       "ml_fallback_count": 0,
       "ml_inference_error_count": 0,
+      "acceptance_by_regime": {
+        "TRENDING_LOW_VOL": {
+          "candidates_scored": 798,
+          "accepted": 258,
+          "acceptance_rate": 0.3233082706766917
+        },
+        "RANGING_LOW_VOL": {
+          "candidates_scored": 105,
+          "accepted": 23,
+          "acceptance_rate": 0.21904761904761905
+        }
+      },
+      "avg_threshold_modifier": -0.009125138427464008,
+      "phase74_safe_count": 406,
+      "phase74_warning_count": 415,
+      "phase74_no_trade_count": 82,
+      "phase74_warning_penalty_count": 415,
+      "phase74_trend_override_count": 340,
+      "phase74_avg_risk_pressure": 0.5322634196957264,
+      "phase74_veto_share_ml_valid": 0.07588075880758807,
+      "phase74_blocked_ml_valid_count": 28,
+      "phase74_ml_valid_candidates": 369,
+      "phase74_reason_breakdown": {
+        "warning_elevated_pressure": 415,
+        "trend_override_warning_to_safe": 340,
+        "no_trade_high_pressure": 82,
+        "safe_low_pressure": 66
+      },
       "ml_score_distribution": {
-        "min": 0.22190450007511606,
-        "max": 0.7167733747448276,
-        "mean": 0.48869483086664456,
-        "std": 0.08546563718187468
+        "min": 0.2219045000751162,
+        "max": 0.7167733747448275,
+        "mean": 0.4935286456348031,
+        "std": 0.08478688432109911
       }
     },
     {
       "tier_name": "TIER_100K",
       "initial_balance": 100000.0,
-      "final_balance": 226922.688817259,
-      "trade_count": 321,
-      "win_rate": 64.48598130841121,
-      "profit_factor": 2.257799419289959,
-      "net_pnl_pct": 126.92268881725917,
-      "max_drawdown_pct": -3.544978574813537,
-      "ml_filtered_trades": 532,
-      "ml_candidates_scored": 853,
-      "avg_ml_score_executed": 0.5744060963120541,
-      "avg_ml_score_rejected": 0.4369780710772151,
-      "ml_acceptance_rate": 0.37631887456037516,
+      "final_balance": 197557.71621220082,
+      "trade_count": 281,
+      "win_rate": 61.92170818505338,
+      "profit_factor": 2.0845132133213222,
+      "net_pnl_pct": 97.5577162122009,
+      "max_drawdown_pct": -3.534730719777573,
+      "ml_filtered_trades": 622,
+      "ml_candidates_scored": 821,
+      "avg_ml_score_executed": 0.5784808984300239,
+      "avg_ml_score_rejected": 0.45088293747806135,
+      "ml_acceptance_rate": 0.24238733252131547,
       "ml_fallback_count": 0,
       "ml_inference_error_count": 0,
+      "acceptance_by_regime": {
+        "TRENDING_LOW_VOL": {
+          "candidates_scored": 798,
+          "accepted": 258,
+          "acceptance_rate": 0.3233082706766917
+        },
+        "RANGING_LOW_VOL": {
+          "candidates_scored": 105,
+          "accepted": 23,
+          "acceptance_rate": 0.21904761904761905
+        }
+      },
+      "avg_threshold_modifier": -0.009125138427464008,
+      "phase74_safe_count": 406,
+      "phase74_warning_count": 415,
+      "phase74_no_trade_count": 82,
+      "phase74_warning_penalty_count": 415,
+      "phase74_trend_override_count": 340,
+      "phase74_avg_risk_pressure": 0.5322634196957264,
+      "phase74_veto_share_ml_valid": 0.07588075880758807,
+      "phase74_blocked_ml_valid_count": 28,
+      "phase74_ml_valid_candidates": 369,
+      "phase74_reason_breakdown": {
+        "warning_elevated_pressure": 415,
+        "trend_override_warning_to_safe": 340,
+        "no_trade_high_pressure": 82,
+        "safe_low_pressure": 66
+      },
       "ml_score_distribution": {
         "min": 0.22190450007511614,
-        "max": 0.7167733747448275,
-        "mean": 0.48869483086664456,
-        "std": 0.08546563718187468
+        "max": 0.7167733747448274,
+        "mean": 0.4935286456348031,
+        "std": 0.08478688432109911
       }
     },
     {
       "tier_name": "TIER_1M",
       "initial_balance": 1000000.0,
-      "final_balance": 2151273.585397264,
-      "trade_count": 320,
-      "win_rate": 64.375,
-      "profit_factor": 2.139686346808852,
-      "net_pnl_pct": 115.1273585397264,
-      "max_drawdown_pct": -3.8038974753001997,
-      "ml_filtered_trades": 531,
-      "ml_candidates_scored": 851,
-      "avg_ml_score_executed": 0.5746566322930202,
-      "avg_ml_score_rejected": 0.4368856813892215,
-      "ml_acceptance_rate": 0.37602820211515864,
+      "final_balance": 1882833.150976714,
+      "trade_count": 279,
+      "win_rate": 62.00716845878136,
+      "profit_factor": 1.9975223799816122,
+      "net_pnl_pct": 88.28331509767138,
+      "max_drawdown_pct": -4.683686401683702,
+      "ml_filtered_trades": 629,
+      "ml_candidates_scored": 826,
+      "avg_ml_score_executed": 0.5790641744876851,
+      "avg_ml_score_rejected": 0.4516880877181683,
+      "ml_acceptance_rate": 0.23849878934624696,
       "ml_fallback_count": 0,
       "ml_inference_error_count": 0,
+      "acceptance_by_regime": {
+        "TRENDING_LOW_VOL": {
+          "candidates_scored": 803,
+          "accepted": 257,
+          "acceptance_rate": 0.32004981320049813
+        },
+        "RANGING_LOW_VOL": {
+          "candidates_scored": 105,
+          "accepted": 22,
+          "acceptance_rate": 0.20952380952380953
+        }
+      },
+      "avg_threshold_modifier": -0.007687224669603525,
+      "phase74_safe_count": 409,
+      "phase74_warning_count": 417,
+      "phase74_no_trade_count": 82,
+      "phase74_warning_penalty_count": 417,
+      "phase74_trend_override_count": 344,
+      "phase74_avg_risk_pressure": 0.5321374694016172,
+      "phase74_veto_share_ml_valid": 0.07588075880758807,
+      "phase74_blocked_ml_valid_count": 28,
+      "phase74_ml_valid_candidates": 369,
+      "phase74_reason_breakdown": {
+        "warning_elevated_pressure": 417,
+        "trend_override_warning_to_safe": 344,
+        "no_trade_high_pressure": 82,
+        "safe_low_pressure": 65
+      },
       "ml_score_distribution": {
-        "min": 0.22190450007511614,
-        "max": 0.7167733747448275,
-        "mean": 0.4886914443612727,
-        "std": 0.08561549892832625
+        "min": 0.2219045000751162,
+        "max": 0.7167733747448273,
+        "mean": 0.49377168323580445,
+        "std": 0.08470943751963596
       }
     }
   ],
   "ml_impact_vs_v24_phase62": [
     {
       "tier_name": "TIER_10K",
-      "delta_profit_factor_vs_v24_phase62": 0.9860386406897717,
-      "delta_net_pnl_pct_vs_v24_phase62": 88.50168194793393,
-      "delta_max_drawdown_pct_vs_v24_phase62": 2.33825450143687
+      "delta_profit_factor_vs_v24_phase62": 0.8129215205810927,
+      "delta_net_pnl_pct_vs_v24_phase62": 59.15433081465878,
+      "delta_max_drawdown_pct_vs_v24_phase62": 2.3485023564728476
     },
     {
       "tier_name": "TIER_100K",
-      "delta_profit_factor_vs_v24_phase62": 0.9860386406897712,
-      "delta_net_pnl_pct_vs_v24_phase62": 88.5016819479338,
-      "delta_max_drawdown_pct_vs_v24_phase62": 2.3382545014369573
+      "delta_profit_factor_vs_v24_phase62": 0.8127524347211343,
+      "delta_net_pnl_pct_vs_v24_phase62": 59.13670934287554,
+      "delta_max_drawdown_pct_vs_v24_phase62": 2.3485023564729217
     },
     {
       "tier_name": "TIER_1M",
-      "delta_profit_factor_vs_v24_phase62": 0.9059619952296263,
-      "delta_net_pnl_pct_vs_v24_phase62": 82.49565413189751,
-      "delta_max_drawdown_pct_vs_v24_phase62": 2.18333251567721
+      "delta_profit_factor_vs_v24_phase62": 0.7637980284023864,
+      "delta_net_pnl_pct_vs_v24_phase62": 55.65161068984249,
+      "delta_max_drawdown_pct_vs_v24_phase62": 1.3035435892937075
     }
   ]
 }

@@ -1,0 +1,61 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 104399.39390908749,
+  "total_signals_generated": 38,
+  "total_signals_executed": 7,
+  "rejected_concurrency_lock": 0,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 2,
+  "rejected_low_priority": 0,
+  "rejected_locks": 2,
+  "rejected_other": 0,
+  "rejected_signals": 31,
+  "duplicate_signal_rejection_rate": 0.8157894736842105,
+  "avg_executed_score": 0.37857142857142856,
+  "avg_rejected_score": 0.4124917456476458,
+  "avg_all_signal_score": 0.40624326618623735,
+  "selection_quality_ratio": 0.9318835783431227,
+  "ml_filtered_trades": 29,
+  "ml_candidates_scored": 36,
+  "avg_ml_score_executed": 0.5717971246690347,
+  "avg_ml_score_rejected": 0.3910141163636221,
+  "ml_acceptance_rate": 0.19444444444444445,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 33,
+      "accepted": 6,
+      "acceptance_rate": 0.18181818181818182
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 3,
+      "accepted": 1,
+      "acceptance_rate": 0.3333333333333333
+    }
+  },
+  "avg_threshold_modifier": -0.018611111111111113,
+  "ml_score_distribution": {
+    "min": 0.2719909071334333,
+    "max": 0.6682421073841969,
+    "mean": 0.42616636797856344,
+    "std": 0.09930819399254232
+  },
+  "win_rate": 85.71428571428571,
+  "profit_factor": 9.311327271164975,
+  "net_pnl_pct": 4.399393909087508,
+  "max_drawdown_pct": -0.5234372738505054,
+  "cluster_event_count": 7,
+  "cluster_event_total_size": 15,
+  "cluster_event_avg_size": 2.142857142857143,
+  "same_candle_multi_symbol_activations": 15,
+  "co_activation_pairs": {
+    "FTMUSDT|MATICUSDT": 3,
+    "ATOMUSDT|LINKUSDT": 1,
+    "BNBUSDT|FTMUSDT": 1,
+    "DOGEUSDT|FILUSDT": 1,
+    "DOGEUSDT|RUNEUSDT": 1,
+    "FILUSDT|RUNEUSDT": 1,
+    "ADAUSDT|FILUSDT": 1
+  }
+}

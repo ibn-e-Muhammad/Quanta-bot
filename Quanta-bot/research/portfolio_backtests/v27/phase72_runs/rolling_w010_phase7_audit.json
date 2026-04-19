@@ -1,0 +1,72 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 103397.39684519774,
+  "total_signals_generated": 29,
+  "total_signals_executed": 7,
+  "rejected_concurrency_lock": 4,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 2,
+  "rejected_low_priority": 0,
+  "rejected_locks": 6,
+  "rejected_other": 0,
+  "rejected_signals": 22,
+  "duplicate_signal_rejection_rate": 0.7586206896551724,
+  "avg_executed_score": 0.32857142857142857,
+  "avg_rejected_score": 0.4407234854481423,
+  "avg_all_signal_score": 0.4136522993054873,
+  "selection_quality_ratio": 0.7943179069065793,
+  "ml_filtered_trades": 16,
+  "ml_candidates_scored": 23,
+  "avg_ml_score_executed": 0.6114124008525776,
+  "avg_ml_score_rejected": 0.4396563635198836,
+  "ml_acceptance_rate": 0.30434782608695654,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 22,
+      "accepted": 7,
+      "acceptance_rate": 0.3181818181818182
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 1,
+      "accepted": 0,
+      "acceptance_rate": 0.0
+    }
+  },
+  "avg_threshold_modifier": 0.03347826086956522,
+  "ml_score_distribution": {
+    "min": 0.29555758845501295,
+    "max": 0.6356844913962156,
+    "mean": 0.4919299400993992,
+    "std": 0.09970283688431908
+  },
+  "win_rate": 71.42857142857143,
+  "profit_factor": 4.088213033757125,
+  "net_pnl_pct": 3.3973968451977496,
+  "max_drawdown_pct": -1.0527689510324223,
+  "cluster_event_count": 6,
+  "cluster_event_total_size": 17,
+  "cluster_event_avg_size": 2.8333333333333335,
+  "same_candle_multi_symbol_activations": 17,
+  "co_activation_pairs": {
+    "BTCUSDT|SOLUSDT": 2,
+    "AVAXUSDT|BTCUSDT": 2,
+    "ADAUSDT|MATICUSDT": 1,
+    "AVAXUSDT|BNBUSDT": 1,
+    "AVAXUSDT|ETHUSDT": 1,
+    "AVAXUSDT|FILUSDT": 1,
+    "BNBUSDT|BTCUSDT": 1,
+    "BNBUSDT|ETHUSDT": 1,
+    "BNBUSDT|FILUSDT": 1,
+    "BTCUSDT|ETHUSDT": 1,
+    "BTCUSDT|FILUSDT": 1,
+    "ETHUSDT|FILUSDT": 1,
+    "ATOMUSDT|BTCUSDT": 1,
+    "ATOMUSDT|LINKUSDT": 1,
+    "ATOMUSDT|SOLUSDT": 1,
+    "BTCUSDT|LINKUSDT": 1,
+    "LINKUSDT|SOLUSDT": 1,
+    "AVAXUSDT|SOLUSDT": 1
+  }
+}

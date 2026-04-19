@@ -1,0 +1,66 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 100991.7347619082,
+  "total_signals_generated": 47,
+  "total_signals_executed": 9,
+  "rejected_concurrency_lock": 1,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 2,
+  "rejected_low_priority": 0,
+  "rejected_locks": 3,
+  "rejected_other": 0,
+  "rejected_signals": 38,
+  "duplicate_signal_rejection_rate": 0.8085106382978723,
+  "avg_executed_score": 0.33888888888888885,
+  "avg_rejected_score": 0.39626918973532027,
+  "avg_all_signal_score": 0.38528147255196105,
+  "selection_quality_ratio": 0.8795878157447203,
+  "ml_filtered_trades": 35,
+  "ml_candidates_scored": 44,
+  "avg_ml_score_executed": 0.5484546003812968,
+  "avg_ml_score_rejected": 0.3781645456636887,
+  "ml_acceptance_rate": 0.20454545454545456,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 38,
+      "accepted": 9,
+      "acceptance_rate": 0.23684210526315788
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 6,
+      "accepted": 0,
+      "acceptance_rate": 0.0
+    }
+  },
+  "avg_threshold_modifier": -0.011136363636363637,
+  "ml_score_distribution": {
+    "min": 0.23802936486837406,
+    "max": 0.6183039977352204,
+    "mean": 0.41299660231047214,
+    "std": 0.1021554804904679
+  },
+  "win_rate": 66.66666666666666,
+  "profit_factor": 1.7680853399866352,
+  "net_pnl_pct": 0.9917347619082122,
+  "max_drawdown_pct": -0.5201672982951346,
+  "cluster_event_count": 8,
+  "cluster_event_total_size": 18,
+  "cluster_event_avg_size": 2.25,
+  "same_candle_multi_symbol_activations": 18,
+  "co_activation_pairs": {
+    "FILUSDT|FTMUSDT": 1,
+    "BNBUSDT|LINKUSDT": 1,
+    "BNBUSDT|SOLUSDT": 1,
+    "LINKUSDT|SOLUSDT": 1,
+    "ETHUSDT|LINKUSDT": 1,
+    "ADAUSDT|RUNEUSDT": 1,
+    "DOTUSDT|NEARUSDT": 1,
+    "FTMUSDT|LINKUSDT": 1,
+    "ATOMUSDT|FILUSDT": 1,
+    "ATOMUSDT|LINKUSDT": 1,
+    "ATOMUSDT|RUNEUSDT": 1,
+    "LINKUSDT|RUNEUSDT": 1
+  }
+}

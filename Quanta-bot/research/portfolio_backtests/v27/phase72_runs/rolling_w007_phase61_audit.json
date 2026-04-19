@@ -1,0 +1,67 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 106414.44840533788,
+  "total_signals_generated": 44,
+  "total_signals_executed": 13,
+  "rejected_concurrency_lock": 0,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 4,
+  "rejected_low_priority": 0,
+  "rejected_locks": 4,
+  "rejected_other": 0,
+  "rejected_signals": 31,
+  "duplicate_signal_rejection_rate": 0.7045454545454546,
+  "avg_executed_score": 0.28786441545440317,
+  "avg_rejected_score": 0.43788531584345086,
+  "avg_all_signal_score": 0.39356095891032317,
+  "selection_quality_ratio": 0.731435395043836,
+  "ml_filtered_trades": 27,
+  "ml_candidates_scored": 40,
+  "avg_ml_score_executed": 0.5659972756143942,
+  "avg_ml_score_rejected": 0.42961660797326223,
+  "ml_acceptance_rate": 0.325,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 36,
+      "accepted": 11,
+      "acceptance_rate": 0.3055555555555556
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 4,
+      "accepted": 2,
+      "acceptance_rate": 0.5
+    }
+  },
+  "avg_threshold_modifier": -0.01925,
+  "ml_score_distribution": {
+    "min": 0.3594826964086348,
+    "max": 0.6214695212218647,
+    "mean": 0.47394032495663013,
+    "std": 0.07483011283537358
+  },
+  "win_rate": 84.61538461538461,
+  "profit_factor": 6.9660297271023115,
+  "net_pnl_pct": 6.414448405337874,
+  "max_drawdown_pct": -1.026619196487677,
+  "cluster_event_count": 7,
+  "cluster_event_total_size": 17,
+  "cluster_event_avg_size": 2.4285714285714284,
+  "same_candle_multi_symbol_activations": 17,
+  "co_activation_pairs": {
+    "ADAUSDT|FILUSDT": 2,
+    "FTMUSDT|MATICUSDT": 2,
+    "FILUSDT|RUNEUSDT": 2,
+    "ADAUSDT|BNBUSDT": 1,
+    "ADAUSDT|MATICUSDT": 1,
+    "ADAUSDT|RUNEUSDT": 1,
+    "BNBUSDT|FILUSDT": 1,
+    "BNBUSDT|MATICUSDT": 1,
+    "BNBUSDT|RUNEUSDT": 1,
+    "FILUSDT|MATICUSDT": 1,
+    "MATICUSDT|RUNEUSDT": 1,
+    "ADAUSDT|ATOMUSDT": 1,
+    "ADAUSDT|DOTUSDT": 1
+  }
+}

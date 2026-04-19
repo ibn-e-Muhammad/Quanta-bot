@@ -1,0 +1,68 @@
+{
+  "initial_balance": 100000.0,
+  "final_balance": 104940.64782616636,
+  "total_signals_generated": 37,
+  "total_signals_executed": 10,
+  "rejected_concurrency_lock": 0,
+  "rejected_symbol_open_lock": 0,
+  "rejected_symbol_cooldown_lock": 3,
+  "rejected_low_priority": 0,
+  "rejected_locks": 3,
+  "rejected_other": 0,
+  "rejected_signals": 27,
+  "duplicate_signal_rejection_rate": 0.7297297297297297,
+  "avg_executed_score": 0.2992237400907241,
+  "avg_rejected_score": 0.43561810763792586,
+  "avg_all_signal_score": 0.39875476505760105,
+  "selection_quality_ratio": 0.7503953966481142,
+  "ml_filtered_trades": 24,
+  "ml_candidates_scored": 34,
+  "avg_ml_score_executed": 0.5675120737502912,
+  "avg_ml_score_rejected": 0.43089012258608134,
+  "ml_acceptance_rate": 0.29411764705882354,
+  "ml_fallback_count": 0,
+  "ml_inference_error_count": 0,
+  "acceptance_by_regime": {
+    "TRENDING_LOW_VOL": {
+      "candidates_scored": 31,
+      "accepted": 8,
+      "acceptance_rate": 0.25806451612903225
+    },
+    "RANGING_LOW_VOL": {
+      "candidates_scored": 3,
+      "accepted": 2,
+      "acceptance_rate": 0.6666666666666666
+    }
+  },
+  "avg_threshold_modifier": -0.01647058823529412,
+  "ml_score_distribution": {
+    "min": 0.3311308295146327,
+    "max": 0.6214695212218648,
+    "mean": 0.47107304939908423,
+    "std": 0.07732781281645683
+  },
+  "win_rate": 80.0,
+  "profit_factor": 5.557688198388242,
+  "net_pnl_pct": 4.940647826166364,
+  "max_drawdown_pct": -1.0266191964876743,
+  "cluster_event_count": 6,
+  "cluster_event_total_size": 16,
+  "cluster_event_avg_size": 2.6666666666666665,
+  "same_candle_multi_symbol_activations": 16,
+  "co_activation_pairs": {
+    "FILUSDT|RUNEUSDT": 2,
+    "ADAUSDT|FILUSDT": 2,
+    "FTMUSDT|MATICUSDT": 2,
+    "DOGEUSDT|FILUSDT": 1,
+    "DOGEUSDT|RUNEUSDT": 1,
+    "ADAUSDT|BNBUSDT": 1,
+    "ADAUSDT|MATICUSDT": 1,
+    "ADAUSDT|RUNEUSDT": 1,
+    "BNBUSDT|FILUSDT": 1,
+    "BNBUSDT|MATICUSDT": 1,
+    "BNBUSDT|RUNEUSDT": 1,
+    "FILUSDT|MATICUSDT": 1,
+    "MATICUSDT|RUNEUSDT": 1,
+    "ADAUSDT|ATOMUSDT": 1
+  }
+}

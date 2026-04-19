@@ -1,23 +1,23 @@
 {
   "avg_ml_score_executed_by_tier": {
-    "TIER_10K": 0.5744060963120541,
-    "TIER_100K": 0.5744060963120541,
-    "TIER_1M": 0.5746566322930202
+    "TIER_10K": 0.5784808984300239,
+    "TIER_100K": 0.5784808984300239,
+    "TIER_1M": 0.5790641744876851
   },
   "avg_ml_score_rejected_by_tier": {
-    "TIER_10K": 0.4369780710772151,
-    "TIER_100K": 0.4369780710772151,
-    "TIER_1M": 0.4368856813892215
+    "TIER_10K": 0.45088293747806135,
+    "TIER_100K": 0.45088293747806135,
+    "TIER_1M": 0.4516880877181683
   },
   "ml_acceptance_rate_by_tier": {
-    "TIER_10K": 0.37631887456037516,
-    "TIER_100K": 0.37631887456037516,
-    "TIER_1M": 0.37602820211515864
+    "TIER_10K": 0.24238733252131547,
+    "TIER_100K": 0.24238733252131547,
+    "TIER_1M": 0.23849878934624696
   },
   "ml_filtered_trades_by_tier": {
-    "TIER_10K": 532,
-    "TIER_100K": 532,
-    "TIER_1M": 531
+    "TIER_10K": 622,
+    "TIER_100K": 622,
+    "TIER_1M": 629
   },
   "ml_fallback_count_by_tier": {
     "TIER_10K": 0,
@@ -29,24 +29,92 @@
     "TIER_100K": 0,
     "TIER_1M": 0
   },
+  "acceptance_by_regime_by_tier": {
+    "TIER_10K": {
+      "TRENDING_LOW_VOL": {
+        "candidates_scored": 798,
+        "accepted": 258,
+        "acceptance_rate": 0.3233082706766917
+      },
+      "RANGING_LOW_VOL": {
+        "candidates_scored": 105,
+        "accepted": 23,
+        "acceptance_rate": 0.21904761904761905
+      }
+    },
+    "TIER_100K": {
+      "TRENDING_LOW_VOL": {
+        "candidates_scored": 798,
+        "accepted": 258,
+        "acceptance_rate": 0.3233082706766917
+      },
+      "RANGING_LOW_VOL": {
+        "candidates_scored": 105,
+        "accepted": 23,
+        "acceptance_rate": 0.21904761904761905
+      }
+    },
+    "TIER_1M": {
+      "TRENDING_LOW_VOL": {
+        "candidates_scored": 803,
+        "accepted": 257,
+        "acceptance_rate": 0.32004981320049813
+      },
+      "RANGING_LOW_VOL": {
+        "candidates_scored": 105,
+        "accepted": 22,
+        "acceptance_rate": 0.20952380952380953
+      }
+    }
+  },
+  "avg_threshold_modifier_by_tier": {
+    "TIER_10K": -0.009125138427464008,
+    "TIER_100K": -0.009125138427464008,
+    "TIER_1M": -0.007687224669603525
+  },
+  "phase74_safe_count_by_tier": {
+    "TIER_10K": 406,
+    "TIER_100K": 406,
+    "TIER_1M": 409
+  },
+  "phase74_warning_count_by_tier": {
+    "TIER_10K": 415,
+    "TIER_100K": 415,
+    "TIER_1M": 417
+  },
+  "phase74_no_trade_count_by_tier": {
+    "TIER_10K": 82,
+    "TIER_100K": 82,
+    "TIER_1M": 82
+  },
+  "phase74_veto_share_ml_valid_by_tier": {
+    "TIER_10K": 0.07588075880758807,
+    "TIER_100K": 0.07588075880758807,
+    "TIER_1M": 0.07588075880758807
+  },
+  "phase74_avg_risk_pressure_by_tier": {
+    "TIER_10K": 0.5322634196957264,
+    "TIER_100K": 0.5322634196957264,
+    "TIER_1M": 0.5321374694016172
+  },
   "ml_score_distribution_by_tier": {
     "TIER_10K": {
-      "min": 0.22190450007511606,
-      "max": 0.7167733747448276,
-      "mean": 0.48869483086664456,
-      "std": 0.08546563718187468
+      "min": 0.2219045000751162,
+      "max": 0.7167733747448275,
+      "mean": 0.4935286456348031,
+      "std": 0.08478688432109911
     },
     "TIER_100K": {
       "min": 0.22190450007511614,
-      "max": 0.7167733747448275,
-      "mean": 0.48869483086664456,
-      "std": 0.08546563718187468
+      "max": 0.7167733747448274,
+      "mean": 0.4935286456348031,
+      "std": 0.08478688432109911
     },
     "TIER_1M": {
-      "min": 0.22190450007511614,
-      "max": 0.7167733747448275,
-      "mean": 0.4886914443612727,
-      "std": 0.08561549892832625
+      "min": 0.2219045000751162,
+      "max": 0.7167733747448273,
+      "mean": 0.49377168323580445,
+      "std": 0.08470943751963596
     }
   }
 }
