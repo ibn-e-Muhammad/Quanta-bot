@@ -153,6 +153,20 @@ class LiveTelemetryStore:
 
         CREATE INDEX IF NOT EXISTS idx_positions_symbol_status
             ON positions(symbol, status);
+
+        CREATE TABLE IF NOT EXISTS signal_rejections (
+            rejection_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            side TEXT,
+            stage TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            details_json TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_signal_rejections_ts
+            ON signal_rejections(timestamp DESC);
         """
 
     async def initialize_async(self) -> None:
@@ -172,6 +186,9 @@ class LiveTelemetryStore:
 
     async def upsert_position_async(self, payload: dict[str, Any]) -> None:
         await asyncio.to_thread(self.upsert_position, payload)
+
+    async def insert_rejection_async(self, payload: dict[str, Any]) -> None:
+        await asyncio.to_thread(self.insert_rejection, payload)
 
     def insert_market_snapshot(self, payload: dict[str, Any]) -> int | None:
         """Insert one market snapshot row; returns rowid or None if deduplicated."""
@@ -270,6 +287,25 @@ class LiveTelemetryStore:
             payload.get("exchange_order_id"),
             payload.get("order_status"),
             json.dumps(payload.get("raw_exchange", {})),
+        )
+        with self.connect() as conn:
+            conn.execute(sql, params)
+            conn.commit()
+
+    def insert_rejection(self, payload: dict[str, Any]) -> None:
+        """Insert one signal rejection record."""
+        sql = """
+        INSERT INTO signal_rejections (
+            timestamp, symbol, side, stage, reason, details_json
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """
+        params = (
+            payload.get("timestamp", self.utc_now_iso()),
+            payload.get("symbol", ""),
+            payload.get("side"),
+            payload.get("stage", "unknown"),
+            payload.get("reason", "unknown"),
+            json.dumps(payload.get("details", {})),
         )
         with self.connect() as conn:
             conn.execute(sql, params)

@@ -1,0 +1,31 @@
+# Git metadata
+.git/
+.gitignore
+
+# Cache and compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets and local configurations
+.env
+.env.*
+
+# Local state and telemetry (CRITICAL: Do not lock local DB variants into the image)
+production/runtime/*.sqlite
+production/runtime/*.sqlite-wal
+production/runtime/*.sqlite-shm
+*.log
+
+# Development environments
+venv/
+env/
+.venv/
+
+# Notebooks and temporary research data
+.ipynb_checkpoints/
+
+# OS Junk
+.DS_Store
+Thumbs.db

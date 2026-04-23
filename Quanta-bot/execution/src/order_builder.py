@@ -25,10 +25,15 @@ def build_order(signal: dict, position_size: float, leverage: float) -> dict:
     dict
         Broker-ready order payload.
     """
+    entry_price = float(signal.get("suggested_entry") or 0.0)
+
     return {
         "symbol": signal["symbol"],
         "side": signal["signal"],           # "BUY" or "SELL"
-        "type": "MARKET",
+        "type": "LIMIT",
+        "timeInForce": "GTX",              # Post-only: cancel if it would take
+        "post_only": True,
+        "price": round(entry_price, 4) if entry_price else None,
         "quantity": round(position_size, config.QUANTITY_PRECISION),
         "leverage": round(leverage, 1),
         "reduce_only": False,

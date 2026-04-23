@@ -1,0 +1,19 @@
+{
+  "defaults": {
+    "risk_per_trade": 0.005,
+    "ml_confidence_threshold": 0.52,
+    "daily_dd_cap": -0.015,
+    "max_concurrent": 2,
+    "max_notional_mult": 5.0,
+    "atr_min_ratio": 0.003,
+    "vol_factor_high": 0.5,
+    "gate_safe_threshold": 0.4,
+    "gate_no_trade_threshold": 0.65,
+    "gate_warning_ml_penalty": 0.05,
+    "gate_trend_override_min_trend": 0.6,
+    "gate_trend_override_max_vol": 0.8
+  },
+  "sweep_grid": {
+    "risk_per_trade": [0.005, 0.01]
+  }
+}

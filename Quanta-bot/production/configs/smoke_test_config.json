@@ -1,0 +1,19 @@
+{
+  "label": "PHASE_8_FORCE_TRADE_TEST",
+  "initial_balance": 5000.0,
+  "risk_per_trade": 0.005,
+  "ml_confidence_threshold": 0.0,
+  "gate_safe_threshold": 2.0,
+  "gate_no_trade_threshold": 2.0,
+  "gate_warning_ml_penalty": 0.0,
+  "max_concurrent": 10,
+  "max_notional_mult": 5.0,
+  "atr_min_ratio": 0.0,
+  "vol_factor_high": 1.0,
+  "gate_trend_override_min_trend": 0.0,
+  "gate_trend_override_max_vol": 2.0,
+  "interval": "15m",
+  "bypass_regime_filter": true,
+  "bypass_trend_filter": true,
+  "bypass_signal_trigger": true
+}

@@ -1,4 +1,4 @@
-def is_fee_viable(entry_price, sl_price, notional):
+def is_fee_viable(entry_price, sl_price, notional, taker_fee_rate=0.0005, slippage_rate=0.0002):
     """
     Phase 4.65: Feasibility Sentry Engine
     Determines objectively if mathematical slippage outweighs local rewards natively rendering trades lethal.
@@ -11,8 +11,8 @@ def is_fee_viable(entry_price, sl_price, notional):
     theoretical_1r_profit = notional * (price_risk / entry_price)
     
     # 2. Complete Double-Friction Calculus 
-    estimated_fees = notional * 0.0005 * 2
-    estimated_slippage = notional * 0.0002
+    estimated_fees = notional * float(taker_fee_rate) * 2
+    estimated_slippage = notional * float(slippage_rate)
     total_friction = estimated_fees + estimated_slippage
     
     # 3. Mandatory 1.4x Reward Margin Limits structurally

@@ -60,12 +60,13 @@ INTERVAL_MS = {
 class WeightManager:
     """
     Tracks API request weight in a rolling 60-second window.
-    Target: ~900 weight/min (75% of Binance 1200 weight/min limit).
+    Target: ~600 weight/min (strict throttle for large backfills).
     Each /fapi/v1/klines request costs ~5 weight.
     """
-    TARGET_WEIGHT = 900
+    TARGET_WEIGHT = 600
     WEIGHT_PER_REQUEST = 5
     WINDOW_SECONDS = 60
+    MIN_SLEEP_SECONDS = 0.25
 
     def __init__(self):
         self._request_log: list[float] = []  # timestamps of requests
@@ -97,6 +98,7 @@ class WeightManager:
 
     def record_request(self):
         self._request_log.append(time.monotonic())
+        time.sleep(self.MIN_SLEEP_SECONDS)
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +123,8 @@ def _fetch_klines(symbol: str, interval: str, end_time: int | None = None) -> li
                 data = json.loads(resp.read().decode("utf-8"))
                 return data
         except urllib.error.HTTPError as e:
-            if e.code == 429:
-                print(f"[RATE-LIMIT] 429 on attempt {attempt + 1}. Backing off {backoff}s...")
+            if e.code in (418, 429):
+                print(f"[RATE-LIMIT] {e.code} on attempt {attempt + 1}. Backing off {backoff}s...")
                 time.sleep(backoff)
                 backoff *= 2
                 continue
@@ -256,6 +258,68 @@ def load_matrix() -> tuple[list[str], list[str]]:
 
 
 # ---------------------------------------------------------------------------
+# MODE C: Recent window (last N days)
+# ---------------------------------------------------------------------------
+def ingest_recent_symbol_interval(
+    symbol: str, interval: str, days: int, weight_mgr: WeightManager
+) -> list[dict]:
+    """Fetch recent klines (last N days) for a symbol/interval pair."""
+    now_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+    start_ms = now_ms - (days * 86_400_000)
+
+    weight_mgr.wait_if_needed()
+    weight_mgr.record_request()
+    raw = _fetch_klines(symbol, interval, end_time=None)
+
+    rows: list[dict] = []
+    for candle in raw:
+        ts = int(candle[0])
+        if ts < start_ms:
+            continue
+        row = {
+            "timestamp": ts,
+            "datetime_utc": datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "open": float(candle[1]),
+            "high": float(candle[2]),
+            "low": float(candle[3]),
+            "close": float(candle[4]),
+            "volume": float(candle[5]),
+            "quote_volume": float(candle[7]),
+            "trade_count": int(candle[8]),
+        }
+        rows.append(row)
+
+    rows.sort(key=lambda r: r["timestamp"])
+    print(f"[INGEST-RECENT] {symbol}_{interval} complete. Total candles: {len(rows)}")
+    return rows
+
+
+def run_mode_c(days: int):
+    """Fetch recent window for all watchlist symbols (1h only)."""
+    watchlist, _ = load_matrix()
+    if not watchlist:
+        print("[ERROR] Empty watchlist. Cannot proceed.")
+        sys.exit(1)
+
+    wm = WeightManager()
+    print("=" * 60)
+    print(f"[MODE C] Recent window — {len(watchlist)} symbols x 1h x {days} days")
+    print("=" * 60)
+
+    for symbol in watchlist:
+        print(f"[RECENT] Processing {symbol}_1h")
+        try:
+            rows = ingest_recent_symbol_interval(symbol, "1h", days, wm)
+        except Exception as exc:
+            print(f"[ERROR] {symbol}_1h failed: {exc}")
+            continue
+        if not rows:
+            print(f"[SKIP] No recent data for {symbol}_1h")
+            continue
+        save_csv(rows, symbol, "1h")
+
+
+# ---------------------------------------------------------------------------
 # MODE A: Unit Test (single pair)
 # ---------------------------------------------------------------------------
 def run_mode_a():
@@ -340,11 +404,10 @@ def run_mode_b():
                 is_partial = _detect_partial(rows)
 
                 if is_partial:
-                    # Young coin: use relaxed minimum of 500 rows
-                    min_rows = 500
-                    print(f"[INFO] {symbol}_{interval} is a partial historical dataset (new listing)")
-                else:
-                    min_rows = 1000
+                    print(f"[ERROR] {symbol}_{interval} is partial. Strict mode requires full history.")
+                    results["failed"] += 1
+                    continue
+                min_rows = 1000
 
                 # Save to primary path first
                 filepath = save_csv(rows, symbol, interval)
@@ -352,18 +415,14 @@ def run_mode_b():
 
                 if is_valid:
                     total_rows += len(rows)
-                    if is_partial:
-                        print(f"[SUCCESS] {symbol}_{interval} validated successfully ({len(rows)} rows, partial)")
-                        results["partial"] += 1
-                    else:
-                        print(f"[SUCCESS] {symbol}_{interval} validated successfully ({len(rows)} rows)")
-                        results["successful"] += 1
+                    print(f"[SUCCESS] {symbol}_{interval} validated successfully ({len(rows)} rows)")
+                    results["successful"] += 1
                 else:
                     print(f"[WARNING] {symbol}_{interval} failed validation")
-                    # Rename to _PARTIAL to avoid overwriting future valid data
-                    partial_path = HISTORICAL_DATA_DIR / f"{symbol}_{interval}_PARTIAL_history.csv"
-                    filepath.rename(partial_path)
-                    print(f"[WARNING] Renamed to {partial_path.name}")
+                    try:
+                        filepath.unlink(missing_ok=True)
+                    except Exception:
+                        pass
                     results["failed"] += 1
 
             except Exception as e:
@@ -381,6 +440,10 @@ def run_mode_b():
     print(f"Total Rows: {total_rows:,}")
     print(f"{'=' * 60}")
 
+    if results["failed"] > 0:
+        print("[FAILURE] Strict ingestion detected failed or partial datasets.")
+        sys.exit(1)
+
 
 # ---------------------------------------------------------------------------
 # CLI Entry Point
@@ -389,11 +452,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Quanta Historical Data Ingester")
-    parser.add_argument("--mode", choices=["a", "b"], default="a",
-                        help="a = Unit test (BTCUSDT_1h only), b = Full production run")
+    parser.add_argument("--mode", choices=["a", "b", "c"], default="a",
+                        help="a = Unit test (BTCUSDT_1h only), b = Full production run, c = Recent window")
+    parser.add_argument("--days", type=int, default=30,
+                        help="Recent window size in days (mode c only)")
     args = parser.parse_args()
 
     if args.mode == "a":
         run_mode_a()
     elif args.mode == "b":
         run_mode_b()
+    elif args.mode == "c":
+        run_mode_c(args.days)

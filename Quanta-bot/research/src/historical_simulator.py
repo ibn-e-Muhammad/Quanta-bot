@@ -20,10 +20,11 @@ from execution.src.risk_engine import RiskEngine
 
 from research.src.trade_quality_engine import evaluate_trade_quality
 from research.src.fee_filter import is_fee_viable
+from research.src.position_sizing import calculate_dynamic_position_size
 
 from research.src.regime_classifier import classify_regime
 from research.src.strategy_router import route_signal
-from research.src.strategies import breakout_engine, mean_reversion_engine, expansion_engine
+from research.src.strategies import breakout_engine, mean_reversion_engine, expansion_engine, momentum_15m_engine
 
 from research.src.engine_governor import (
     initial_state, tick_state, record_trade, get_pf,
@@ -41,7 +42,7 @@ MACRO_TF            = "4h"
 MIN_GAP_MINUTES     = 240        # 1 full 4H candle cooldown after any close
 TF_MINUTES          = {"4h": 240}
 
-RISK_PER_TRADE      = 0.005      # 0.5%
+RISK_PER_TRADE      = 0.005      # 0.5% (Phase 7.4 baseline)
 MAX_CONCURRENT      = 2          # strict prop-firm concurrency
 DAILY_DD_CAP        = -0.015     # -1.5% daily realized DD lock
 MAX_NOTIONAL_MULT   = 5.0
@@ -67,7 +68,10 @@ class HistoricalSimulator:
         self.filter_stats = {}
         self.daily_dd_breaches = 0
         self.initial_balance = float(self.config_override.get("initial_balance", 10000.0))
-        self.ml_threshold = float(self.config_override.get("ml_threshold", ML_THRESHOLD))
+        self.ml_threshold = float(
+            self.config_override.get("ml_threshold",
+            self.config_override.get("ml_confidence_threshold", ML_THRESHOLD))
+        )
         self.simulation_start = self._parse_optional_timestamp(self.config_override.get("simulation_start"))
         self.simulation_end = self._parse_optional_timestamp(self.config_override.get("simulation_end"))
         symbol_subset = self.config_override.get("symbol_subset")
@@ -76,6 +80,27 @@ class HistoricalSimulator:
         self.shuffle_ml = bool(self.config_override.get("shuffle_ml", False))
         self.shuffle_seed = int(self.config_override.get("shuffle_seed", 42))
         self.audit_metrics = self._init_audit_metrics()
+
+        self.exec_timeframes = self.config_override.get("exec_timeframes", EXEC_TIMEFRAMES)
+        self.macro_tf = self.config_override.get("macro_tf", MACRO_TF)
+        self.tf_minutes = dict(TF_MINUTES)
+        self.tf_minutes.update(self.config_override.get("tf_minutes", {}))
+        self.strategy_name = str(self.config_override.get("strategy_name", "expansion_engine"))
+        self.taker_fee_rate = float(self.config_override.get("taker_fee_rate", 0.0005))
+        self.slippage_rate_cfg = self.config_override.get("slippage_rate")
+        self.risk_per_trade = float(self.config_override.get("risk_per_trade", RISK_PER_TRADE))
+
+        # ── Sweep-configurable dials (Phase 7.4 Gold Standard defaults) ──
+        self.daily_dd_cap = float(self.config_override.get("daily_dd_cap", DAILY_DD_CAP))
+        self.max_concurrent = int(self.config_override.get("max_concurrent", MAX_CONCURRENT))
+        self.max_notional_mult = float(self.config_override.get("max_notional_mult", MAX_NOTIONAL_MULT))
+        self.atr_min_ratio = float(self.config_override.get("atr_min_ratio", ATR_MIN_RATIO))
+        self.vol_factor_high = float(self.config_override.get("vol_factor_high", 0.5))
+        self.gate_safe_threshold = float(self.config_override.get("gate_safe_threshold", 0.40))
+        self.gate_no_trade_threshold = float(self.config_override.get("gate_no_trade_threshold", 0.65))
+        self.gate_warning_ml_penalty = float(self.config_override.get("gate_warning_ml_penalty", 0.05))
+        self.gate_trend_override_min_trend = float(self.config_override.get("gate_trend_override_min_trend", 0.60))
+        self.gate_trend_override_max_vol = float(self.config_override.get("gate_trend_override_max_vol", 0.80))
 
         self.setup_db()
 
@@ -140,6 +165,11 @@ class HistoricalSimulator:
         penalty_steps = math.floor((notional - 50000) / 50000)
         return 0.0002 + (penalty_steps * 0.0001)
 
+    def _effective_slippage_rate(self, notional):
+        if self.slippage_rate_cfg is not None:
+            return float(self.slippage_rate_cfg)
+        return float(self._slippage_rate_from_notional(notional))
+
     @staticmethod
     def _normalize_buffer_feature(values):
         if not values:
@@ -184,16 +214,21 @@ class HistoricalSimulator:
         price_risk = abs(entry_price - sl_price)
         if entry_price <= 0 or price_risk <= 0:
             return 0.0
-        effective_risk = RISK_PER_TRADE * risk_mult
+        effective_risk = self.risk_per_trade * risk_mult
         risk_amount = current_balance * effective_risk
         position_size = risk_amount / price_risk
         notional = position_size * entry_price
-        max_notional = current_balance * MAX_NOTIONAL_MULT
+        max_notional = current_balance * self.max_notional_mult
         return max(0.0, min(notional, max_notional))
 
     def _build_ml_features(self, candidate):
+        import pandas as _pd
         row = candidate["row"]
-        ts = candidate["ts"]
+        ts = candidate.get("ts")
+        if ts is None:
+            # Fallback: reconstruct from open_time_ms or use epoch zero
+            ot = row.get("open_time_ms", candidate.get("open_time_ms", 0))
+            ts = _pd.Timestamp(int(ot), unit="ms", tz="UTC") if ot else _pd.Timestamp(0, unit="ms", tz="UTC")
         ema_trend_val = float(row.get("ema_trend", 0.0) or 0.0)
         close_val = float(row.get("close", 0.0) or 0.0)
         ema_distance = abs((close_val - ema_trend_val) / ema_trend_val) if ema_trend_val else 0.0
@@ -296,15 +331,15 @@ class HistoricalSimulator:
             + (0.15 * (1.0 - trend_score))
         )
 
-        if risk_pressure < 0.40:
+        if risk_pressure < self.gate_safe_threshold:
             regime = "SAFE"
             trade_allowed = True
             ml_penalty = 0.0
             reason = "safe_low_pressure"
-        elif risk_pressure < 0.65:
+        elif risk_pressure < self.gate_no_trade_threshold:
             regime = "WARNING"
             trade_allowed = True
-            ml_penalty = 0.05
+            ml_penalty = self.gate_warning_ml_penalty
             reason = "warning_elevated_pressure"
         else:
             regime = "NO_TRADE"
@@ -313,11 +348,11 @@ class HistoricalSimulator:
             reason = "no_trade_high_pressure"
 
         override_applied = False
-        if trend_score > 0.60 and vol_score < 0.80:
+        if trend_score > self.gate_trend_override_min_trend and vol_score < self.gate_trend_override_max_vol:
             if regime == "NO_TRADE":
                 regime = "WARNING"
                 trade_allowed = True
-                ml_penalty = 0.05
+                ml_penalty = self.gate_warning_ml_penalty
                 reason = "trend_override_no_trade_to_warning"
                 override_applied = True
             elif regime == "WARNING":
@@ -425,27 +460,84 @@ class HistoricalSimulator:
 
     # ── Data loading ───────────────────────────────────────────────────
     def load_tf(self, symbol, tf):
-        path = os.path.join(self.data_dir, f"{symbol}_{tf}_history.csv")
-        if not os.path.exists(path): return None
+        candidates = [
+            os.path.join(self.data_dir, "processed", f"{symbol}_{tf}_features.csv"),
+            os.path.join(self.data_dir, "processed", f"{symbol}_{tf}_raw.csv"),
+            os.path.join(self.data_dir, f"{symbol}_{tf}_history.csv"),
+            os.path.join(self.data_dir, "raw", f"{symbol}_{tf}_raw.csv"),
+        ]
+        path = next((p for p in candidates if os.path.exists(p)), None)
+        if path is None:
+            return None
         df = pd.read_csv(path)
         df['datetime_utc'] = pd.to_datetime(df['datetime_utc'])
         df = df.sort_values('datetime_utc').drop_duplicates('datetime_utc').reset_index(drop=True)
         return self.calculate_indicators(df)
 
     def load_all_tfs(self, symbol):
-        needed = set(EXEC_TIMEFRAMES) | {MACRO_TF}
+        needed = set(self.exec_timeframes) | {self.macro_tf}
         return {tf: self.load_tf(symbol, tf) for tf in needed}
 
     # ── Signal generation ──────────────────────────────────────────────
     def generate_signals_for_tf(self, df_exec, df_macro, exec_tf):
-        if df_exec is None or df_macro is None: return []
-        df_m   = df_macro.add_suffix('_4h').rename(columns={'datetime_utc_4h': 'datetime_utc'})
-        merged = pd.merge_asof(df_exec, df_m, on='datetime_utc', direction='backward').dropna()
+        if df_exec is None: return []
+        if self.strategy_name == "mean_reversion_engine":
+            merged = df_exec.copy()
+        elif self.strategy_name == "momentum_15m":
+            macro = df_macro[["datetime_utc", "adx", "ema_fast", "ema_slow"]].copy()
+            macro["htf_trend"] = np.where(
+                macro["ema_fast"] > macro["ema_slow"],
+                1,
+                np.where(macro["ema_fast"] < macro["ema_slow"], -1, 0),
+            )
+            macro = macro.rename(columns={"adx": "htf_adx"})
+            merged = pd.merge_asof(
+                df_exec.sort_values("datetime_utc"),
+                macro[["datetime_utc", "htf_adx", "htf_trend"]].sort_values("datetime_utc"),
+                on="datetime_utc",
+                direction="backward",
+            ).dropna()
+        else:
+            if df_macro is None:
+                return []
+            df_m = df_macro.add_suffix('_4h').rename(columns={'datetime_utc_4h': 'datetime_utc'})
+            merged = pd.merge_asof(df_exec, df_m, on='datetime_utc', direction='backward').dropna()
 
         records = merged.to_dict('records')
         signals = []
         for i, row in enumerate(records):
             if i == 0: continue
+
+            if self.strategy_name == "momentum_15m":
+                sig_dict = momentum_15m_engine.generate_signal(row)
+                if sig_dict['signal'] == 0:
+                    continue
+                row['signal'] = sig_dict['signal']
+                row['regime'] = 'MOMENTUM_15M'
+                row['strategy_used'] = sig_dict['strategy']
+                row['target_sl'] = sig_dict['sl']
+                row['target_tp1'] = sig_dict['tp1']
+                row['target_tp2'] = sig_dict['tp2']
+                row['exec_tf'] = exec_tf
+                signals.append(row)
+                continue
+
+            if self.strategy_name == "mean_reversion_engine":
+                sig_dict = mean_reversion_engine.generate_signal(row)
+                if sig_dict['signal'] == 0:
+                    continue
+                row['signal'] = sig_dict['signal']
+                row['regime'] = 'MEAN_REVERSION'
+                row['strategy_used'] = sig_dict['strategy']
+                row['target_sl'] = sig_dict['sl']
+                row['target_tp1'] = sig_dict['tp1']
+                row['target_tp2'] = sig_dict['tp2']
+                row['exec_tf'] = exec_tf
+                if 'suggested_entry' in sig_dict:
+                    row['suggested_entry'] = sig_dict['suggested_entry']
+                signals.append(row)
+                continue
+
             regime        = classify_regime(row)
             strategy_name = route_signal(regime)
             if strategy_name != "expansion_engine": continue
@@ -492,10 +584,10 @@ class HistoricalSimulator:
 
         for symbol in watchlist:
             tf_data  = self.load_all_tfs(symbol)
-            df_macro = tf_data.get(MACRO_TF)
+            df_macro = tf_data.get(self.macro_tf)
             if df_macro is None: continue
 
-            for exec_tf in EXEC_TIMEFRAMES:
+            for exec_tf in self.exec_timeframes:
                 df_exec = tf_data.get(exec_tf)
                 if df_exec is None: continue
 
@@ -615,13 +707,11 @@ class HistoricalSimulator:
             symbols_at_ts = set()
             today = ts.date()
             today_pnl = daily_closed_pnl.get(today, 0.0)
-            daily_dd_blocked = today_pnl <= (current_balance * DAILY_DD_CAP)
+            daily_dd_blocked = today_pnl <= (current_balance * self.daily_dd_cap)
 
             for row in batch_rows:
                 symbol = row["symbol"]
                 strategy_used = row.get("strategy_used", "none")
-                if strategy_used not in ENGINE_PRIORITY:
-                    continue
 
                 if not self._matches_regime_filter(self.regime_filter, row):
                     continue
@@ -631,7 +721,7 @@ class HistoricalSimulator:
 
                 if not evaluate_trade_quality(row):
                     continue
-                if entry_price == 0 or (atr / entry_price) < ATR_MIN_RATIO:
+                if entry_price == 0 or (atr / entry_price) < self.atr_min_ratio:
                     continue
 
                 self.audit_metrics["total_signals_generated"] += 1
@@ -642,14 +732,19 @@ class HistoricalSimulator:
                     self.audit_metrics["rejected_other"] += 1
                     continue
 
-                allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
-                if not allow:
-                    self.audit_metrics["rejected_other"] += 1
-                    continue
+                if strategy_used in ENGINE_PRIORITY:
+                    allow, risk_mult = tick_state(strategy_used, engine_states[strategy_used], gov_log)
+                    if not allow:
+                        self.audit_metrics["rejected_other"] += 1
+                        continue
+                    eng_state_label = engine_states[strategy_used]["state"]
+                else:
+                    risk_mult = 1.0
+                    eng_state_label = "N/A"
 
                 sl = row["target_sl"]
                 notional_est = self._estimate_notional_for_scoring(current_balance, entry_price, sl, risk_mult)
-                estimated_cost = (0.0005 + self._slippage_rate_from_notional(notional_est))
+                estimated_cost = (self.taker_fee_rate + self._effective_slippage_rate(notional_est))
                 ema_distance = abs((entry_price - row["ema_trend"]) / row["ema_trend"]) if row["ema_trend"] else 0.0
 
                 signal_buffer.append({
@@ -657,10 +752,10 @@ class HistoricalSimulator:
                     "ts": ts,
                     "symbol": symbol,
                     "exec_tf": row.get("exec_tf", "4h"),
-                    "tf_min": TF_MINUTES.get(row.get("exec_tf", "4h"), 240),
+                    "tf_min": self.tf_minutes.get(row.get("exec_tf", "4h"), 240),
                     "strategy_used": strategy_used,
                     "risk_mult": risk_mult,
-                    "eng_state_label": engine_states[strategy_used]["state"],
+                    "eng_state_label": eng_state_label,
                     "atr_ratio": atr / entry_price,
                     "adx": row.get("adx", 0.0),
                     "price_distance_from_ema": ema_distance,
@@ -679,7 +774,7 @@ class HistoricalSimulator:
             for s in signal_buffer:
                 all_buffered_scores.append(s.get("score", 0.0))
 
-            slots_available_start = max(0, MAX_CONCURRENT - len(open_positions))
+            slots_available_start = max(0, self.max_concurrent - len(open_positions))
             executed_this_ts = 0
             shuffled_prob_map = {}
             if self.shuffle_ml and slots_available_start > 0:
@@ -692,7 +787,7 @@ class HistoricalSimulator:
                         continue
                     if any(p["symbol"] == symbol for p in open_positions):
                         continue
-                    if slots_available_start <= 0 or len(open_positions) >= MAX_CONCURRENT:
+                    if slots_available_start <= 0 or len(open_positions) >= self.max_concurrent:
                         continue
                     pre_ml_candidates.append(candidate)
 
@@ -729,7 +824,7 @@ class HistoricalSimulator:
                     rejected_scores.append(score)
                     continue
 
-                if slots_available_start <= 0 or len(open_positions) >= MAX_CONCURRENT:
+                if slots_available_start <= 0 or len(open_positions) >= self.max_concurrent:
                     self.audit_metrics["rejected_concurrency_lock"] += 1
                     rejected_scores.append(score)
                     continue
@@ -814,7 +909,15 @@ class HistoricalSimulator:
                 regime = row["regime"]
                 volat_regime = "HIGH" if atr > (entry_price * 0.02) else "NORMAL"
 
-                effective_risk = RISK_PER_TRADE * risk_mult
+                _, _, vol_factor = calculate_dynamic_position_size(
+                    adx=float(row.get("adx", 0.0) or 0.0),
+                    volatility_regime=volat_regime,
+                    portfolio_factor=1.0,
+                    asset_tier_factor=1.0,
+                    vol_factor_high=self.vol_factor_high,
+                )
+
+                effective_risk = self.risk_per_trade * risk_mult * float(vol_factor)
                 price_risk = abs(entry_price - sl)
                 if price_risk == 0:
                     self.audit_metrics["rejected_other"] += 1
@@ -824,7 +927,7 @@ class HistoricalSimulator:
                 position_size = risk_amount / price_risk
                 notional = position_size * entry_price
 
-                max_notional = current_balance * MAX_NOTIONAL_MULT
+                max_notional = current_balance * self.max_notional_mult
                 if notional > max_notional:
                     notional = max_notional
                     position_size = notional / entry_price
@@ -838,12 +941,18 @@ class HistoricalSimulator:
                     self.audit_metrics["rejected_other"] += 1
                     continue
 
-                if not is_fee_viable(entry_price, sl, notional):
+                if not is_fee_viable(
+                    entry_price,
+                    sl,
+                    notional,
+                    taker_fee_rate=self.taker_fee_rate,
+                    slippage_rate=self._effective_slippage_rate(notional),
+                ):
                     self.audit_metrics["rejected_other"] += 1
                     continue
 
-                entry_fee_rate = 0.0005
-                slippage_rate = self._slippage_rate_from_notional(notional)
+                entry_fee_rate = self.taker_fee_rate
+                slippage_rate = self._effective_slippage_rate(notional)
 
                 key = f"{symbol}_{exec_tf}"
                 idx_map = self.price_data[key]["idx_map"]
@@ -977,7 +1086,8 @@ class HistoricalSimulator:
                 net_pnl = gross_pnl - fees_paid - slippage_paid
                 current_balance += net_pnl
                 risk_engine.update_pnl(net_pnl)
-                record_trade(engine_states[strategy_used], net_pnl)
+                if strategy_used in engine_states:
+                    record_trade(engine_states[strategy_used], net_pnl)
 
                 open_positions.append({
                     "exit_time": exit_timestamp,
@@ -985,7 +1095,7 @@ class HistoricalSimulator:
                     "margin": margin_required,
                     "net_pnl": net_pnl,
                 })
-                symbol_cooldown[symbol] = exit_timestamp + timedelta(minutes=240)
+                symbol_cooldown[symbol] = exit_timestamp + timedelta(minutes=tf_min)
 
                 ts_iso = ts.isoformat()
                 signal_type = "BUY" if sig_val == 1 else "SELL"

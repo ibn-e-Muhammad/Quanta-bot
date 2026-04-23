@@ -38,6 +38,10 @@ research/backtest_results*/
 research/edge_strength_results/
 research/backtest_results_v2/
 research/backtest_results_v3/
+research/data/
+research/portfolio_backtests/
+research/edge_strength_results/
+research/logs/
 *.sqlite
 *.csv
 

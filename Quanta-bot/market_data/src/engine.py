@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timezone
 
 from . import config
-from .binance_client import fetch_klines, SafeModeError, DataIntegrityError
+from .binance_client import fetch_klines, fetch_funding_rate, SafeModeError, DataIntegrityError
 from . import indicators
 from .classifier import classify_volatility, classify_market_state
 from .state_writer import write_state, build_safe_mode_payload
@@ -25,6 +25,7 @@ def run_market_engine(symbol: str, interval: str) -> None:
     try:
         # ---- Step 1: Fetch klines ----
         klines = fetch_klines(symbol, interval, config.CANDLE_LIMIT)
+        funding_rate = fetch_funding_rate(symbol)
 
         # ---- Step 2: Extract OHLCV arrays ----
         opens = [k["open"] for k in klines]
@@ -93,6 +94,7 @@ def run_market_engine(symbol: str, interval: str) -> None:
             "atr": round(atr_val, 2),
             "bb_lower": round(bb_lower, 2),
             "bb_upper": round(bb_upper, 2),
+            "funding_rate": round(funding_rate, 6),
             "current_volume": round(current_volume, 2),
             "volume_sma_20": round(volume_sma_latest, 2),
             "state": {

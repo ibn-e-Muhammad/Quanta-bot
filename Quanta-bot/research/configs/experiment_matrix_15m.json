@@ -1,0 +1,23 @@
+{
+  "dataset_params": {
+    "timeframe": "15m",
+    "htf_timeframe": "1h",
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    "duration_months": 12
+  },
+
+  "exit_profiles": [
+    { "name": "fixed_1.5R", "tp_rr": 1.5, "partial": false },
+    { "name": "fixed_2R", "tp_rr": 2.0, "partial": false },
+    { "name": "partial_1.5_2R", "tp_rr": [1.5, 2.0], "partial": true }
+  ],
+
+  "mtf_modes": [{ "name": "strict", "use_1h": true }],
+
+  "strategy_types": [{ "name": "momentum_ignition" }],
+
+  "simulation_environment": {
+    "taker_fee_pct": 0.05,
+    "slippage_pct": 0.03
+  }
+}

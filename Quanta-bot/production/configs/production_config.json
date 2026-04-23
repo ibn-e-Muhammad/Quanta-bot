@@ -1,0 +1,18 @@
+{
+  "label": "PRODUCTION_SNIPER_V1",
+  "initial_balance": 5000.0,
+  "risk_per_trade": 0.02,
+  "ml_confidence_threshold": 0.54,
+  "daily_dd_cap": -0.015,
+  "max_concurrent": 2,
+  "max_notional_mult": 5.0,
+  "atr_min_ratio": 0.003,
+  "vol_factor_high": 0.5,
+  "gate_safe_threshold": 0.4,
+  "gate_no_trade_threshold": 0.7,
+  "gate_warning_ml_penalty": 0.05,
+  "gate_trend_override_min_trend": 0.6,
+  "gate_trend_override_max_vol": 0.8,
+  "interval": "4h",
+  "trailing_callback_rate": 1.0
+}

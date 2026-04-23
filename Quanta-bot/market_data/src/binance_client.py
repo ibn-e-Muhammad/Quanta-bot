@@ -76,6 +76,40 @@ def fetch_klines(
     return _validate_and_transform(raw)
 
 
+def fetch_funding_rate(symbol: str = config.SYMBOL) -> float:
+    """Fetch current funding rate from Binance USD-M Futures.
+
+    Uses /fapi/v1/premiumIndex. Returns funding rate as float.
+    """
+    url = f"{config.API_BASE_URL}/fapi/v1/premiumIndex"
+    params = {"symbol": symbol}
+
+    consecutive_429 = 0
+    backoff = config.BACKOFF_BASE_SECONDS
+
+    while True:
+        resp = requests.get(url, params=params, timeout=15)
+
+        if resp.status_code == 429:
+            consecutive_429 += 1
+            if consecutive_429 >= config.MAX_RETRIES:
+                raise SafeModeError(
+                    f"Rate-limited {consecutive_429} consecutive times — entering SAFE MODE"
+                )
+            time.sleep(backoff)
+            backoff *= 2
+            continue
+
+        resp.raise_for_status()
+        break
+
+    payload = resp.json()
+    rate = payload.get("lastFundingRate") or payload.get("fundingRate")
+    if rate is None:
+        raise DataIntegrityError("Funding rate missing from premiumIndex response")
+    return float(rate)
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------

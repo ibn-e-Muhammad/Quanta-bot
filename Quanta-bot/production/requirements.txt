@@ -3,3 +3,4 @@ pandas
 websockets
 python-dotenv
 aiosqlite
+aiohttp

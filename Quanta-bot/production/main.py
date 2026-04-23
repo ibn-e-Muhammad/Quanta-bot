@@ -49,7 +49,12 @@ async def run_headless(logger: logging.Logger) -> None:
     load_dotenv()
     logger.info("Boot Sequence | .env loaded")
 
-    orchestrator = LiveOrchestrator.from_env()
+    import argparse
+    parser = argparse.ArgumentParser(description="Quanta Production Runner")
+    parser.add_argument("--config", default=None, help="Path to smoke test config JSON override")
+    args, _ = parser.parse_known_args()
+
+    orchestrator = LiveOrchestrator.from_env(smoke_config_path=args.config)
     symbols = len(orchestrator.streamer.symbols)
     logger.info("Boot Sequence | symbols loaded=%s", symbols)
     logger.info("Boot Sequence | telemetry_db=%s", orchestrator.telemetry.db_path)

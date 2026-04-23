@@ -97,9 +97,10 @@ def run_execution_engine(
         if final_size <= 0:
             return _reject("Final position size is zero after ATR scaling and leverage caps.")
 
-        leverage_used = final_size / balance
-        risk_usd = balance * risk_per_trade
-        risk_pct = risk_per_trade
+        notional = final_size * entry
+        leverage_used = (notional / balance) if balance else 0.0
+        risk_usd = balance * risk_engine.margin_fraction
+        risk_pct = risk_engine.margin_fraction
 
         # ---- Step 6: Build order ----
         order: dict = build_order(validated_signal, final_size, leverage_used)

@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -14,11 +15,35 @@ from research.src.capacity_correlation_audit import (
 )
 
 
+def _parse_tiers(raw_tiers, default_tiers):
+    if not raw_tiers:
+        return default_tiers
+    requested = [t.strip().upper() for t in raw_tiers.split(",") if t.strip()]
+    tier_map = {name: bal for name, bal in default_tiers}
+    selected = []
+    for name in requested:
+        if name not in tier_map:
+            raise ValueError(f"Unknown tier: {name}")
+        selected.append((name, tier_map[name]))
+    return selected
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Run Phase 7.4 baseline portfolio simulation")
+    parser.add_argument(
+        "--tiers",
+        default="",
+        help="Comma-separated tiers to run (TIER_10K,TIER_100K,TIER_1M).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="",
+        help="Optional output directory. If omitted and a single tier is selected, a tier-specific folder is used.",
+    )
+    args = parser.parse_args()
+
     base_config = _ROOT / "runtime" / "config" / "strategy_config.json"
     data_dir = _ROOT / "research" / "historical_data"
-    ver_dir = _ROOT / "research" / "portfolio_backtests" / "v27"
-    ver_dir.mkdir(parents=True, exist_ok=True)
 
     with open(base_config, "r", encoding="utf-8") as f:
         conf = json.load(f)
@@ -43,8 +68,23 @@ def main():
         ("TIER_1M", 1_000_000.0),
     ]
 
+    try:
+        selected_tiers = _parse_tiers(args.tiers, capital_tiers)
+    except ValueError as exc:
+        print(f"[PHASE74_BASELINE] {exc}")
+        sys.exit(1)
+
+    if args.output_dir:
+        ver_dir = Path(args.output_dir)
+    elif len(selected_tiers) == 1:
+        tier_slug = selected_tiers[0][0].lower()
+        ver_dir = _ROOT / "research" / "portfolio_backtests" / "v27" / f"phase74_{tier_slug}"
+    else:
+        ver_dir = _ROOT / "research" / "portfolio_backtests" / "v27"
+    ver_dir.mkdir(parents=True, exist_ok=True)
+
     tier_results = []
-    for tier_name, initial_balance in capital_tiers:
+    for tier_name, initial_balance in selected_tiers:
         db_path = ver_dir / f"portfolio_results_{tier_name.lower()}.sqlite"
         if db_path.exists():
             db_path.unlink()

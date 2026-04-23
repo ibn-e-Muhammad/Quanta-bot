@@ -9,3 +9,126 @@
 2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | symbols loaded=30
 2026-04-19 16:37:40 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
 2026-04-19 16:37:41 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-19 23:40:08 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-19 23:40:08 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-19 23:40:08 | INFO | quanta.production | Boot Sequence | symbols loaded=30
+2026-04-19 23:40:08 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-19 23:40:09 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 02:02:37 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 02:02:37 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 02:02:37 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 02:02:37 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 02:02:38 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 02:14:39 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 02:14:39 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 02:14:39 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 02:14:39 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 02:14:40 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 02:40:53 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 02:40:53 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 02:40:53 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 02:40:53 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 02:40:53 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 12:03:01 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 12:03:01 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 12:03:01 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 12:03:01 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 12:03:04 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 13:10:09 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 13:12:29 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 13:12:29 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 13:12:29 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 13:12:29 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 13:12:30 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 13:13:16 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 13:43:15 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 13:43:15 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 13:43:15 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 13:43:15 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 13:43:15 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 14:19:34 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 14:23:08 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 14:23:08 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 14:23:08 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 14:23:08 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 14:23:09 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 14:26:08 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 14:26:23 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 14:26:23 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 14:26:23 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 14:26:23 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 14:26:24 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 14:46:53 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 14:46:57 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 14:46:57 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 14:46:57 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 14:46:57 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 14:46:58 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 15:29:15 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 15:30:19 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 15:30:19 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 15:30:19 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 15:30:19 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 15:30:19 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 15:55:40 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 15:58:31 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 15:58:31 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 15:58:31 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 15:58:31 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 15:58:31 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 17:18:50 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 17:18:59 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 17:18:59 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 17:18:59 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 17:18:59 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 17:19:00 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 17:20:14 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 17:20:25 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 17:20:25 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 17:20:25 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 17:20:25 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 17:20:26 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 17:35:06 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 17:41:43 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 17:41:43 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 17:41:43 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 17:41:43 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 17:41:43 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 17:50:49 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 17:51:57 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 17:51:57 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 17:51:57 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 17:51:57 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 17:51:58 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 18:17:10 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
+2026-04-22 18:19:17 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 18:19:17 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 18:19:17 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 18:19:17 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 18:19:17 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 20:22:39 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 20:22:39 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 20:22:39 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 20:22:39 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 20:22:40 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 20:31:24 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 20:31:24 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 20:31:24 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 20:31:24 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 20:31:28 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 20:52:35 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 20:52:35 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 20:52:35 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 20:52:35 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 20:52:39 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-22 21:07:23 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-22 21:07:23 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-22 21:07:23 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-22 21:07:23 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-22 21:07:24 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-23 13:59:05 | INFO | quanta.production | Boot Sequence | starting headless runtime
+2026-04-23 13:59:05 | INFO | quanta.production | Boot Sequence | .env loaded
+2026-04-23 13:59:05 | INFO | quanta.production | Boot Sequence | symbols loaded=31
+2026-04-23 13:59:05 | INFO | quanta.production | Boot Sequence | telemetry_db=D:\Code\Projects\Quanta Bot\Quanta-bot\production\runtime\live_telemetry.sqlite
+2026-04-23 13:59:06 | INFO | quanta.production | Boot Sequence | api_status=OK
+2026-04-23 14:48:18 | INFO | quanta.production | KeyboardInterrupt received, exiting cleanly
