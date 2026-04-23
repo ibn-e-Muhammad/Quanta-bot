@@ -14,6 +14,7 @@ runtime/*.sqlite
 runtime/*.sqlite-wal
 runtime/*.sqlite-shm
 runtime/*.log
+runtime/market_states/*.json
 # ---- Python ----
 __pycache__/
 *.py[cod]
