@@ -1,0 +1,21 @@
+{
+  "symbol": "ADAUSDT",
+  "timestamp": "2026-04-16T09:28:01.934953+00:00",
+  "price": 0.2502,
+  "ema_20": 0.25,
+  "ema_50": 0.25,
+  "vwap": 0.24,
+  "rsi": 56.3,
+  "adx": 22.2,
+  "atr": 0.0,
+  "bb_lower": 0.25,
+  "bb_upper": 0.25,
+  "current_volume": 1039204.4,
+  "volume_sma_20": 1844421.01,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "NORMAL"
+  },
+  "support_level": 0.24,
+  "resistance_level": 0.25
+}

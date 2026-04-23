@@ -1,0 +1,23 @@
+{
+  "symbol": "LTCUSDT",
+  "timestamp": "2026-04-17T12:59:52.306028+00:00",
+  "price": 56.59,
+  "ema_fast": 56.25,
+  "ema_slow": 56.09,
+  "ema_confirm": 55.97,
+  "ema_trend": 55.51,
+  "vwap": 55.49,
+  "rsi": 69.3,
+  "adx": 34.8,
+  "atr": 0.2,
+  "bb_lower": 55.76,
+  "bb_upper": 56.47,
+  "current_volume": 27097.14,
+  "volume_sma_20": 12938.37,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "NORMAL"
+  },
+  "support_level": 55.75,
+  "resistance_level": 56.63
+}

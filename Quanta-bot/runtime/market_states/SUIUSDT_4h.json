@@ -1,0 +1,23 @@
+{
+  "symbol": "SUIUSDT",
+  "timestamp": "2026-04-17T12:59:43.417476+00:00",
+  "price": 1.0102,
+  "ema_fast": 0.99,
+  "ema_slow": 0.97,
+  "ema_confirm": 0.95,
+  "ema_trend": 0.93,
+  "vwap": 0.93,
+  "rsi": 68.6,
+  "adx": 34.6,
+  "atr": 0.02,
+  "bb_lower": 0.91,
+  "bb_upper": 1.02,
+  "current_volume": 17534058.2,
+  "volume_sma_20": 39215489.48,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 0.91,
+  "resistance_level": 1.01
+}

@@ -1,0 +1,21 @@
+{
+  "symbol": "DOTUSDT",
+  "timestamp": "2026-04-16T09:28:24.787156+00:00",
+  "price": 1.268,
+  "ema_20": 1.21,
+  "ema_50": 1.2,
+  "vwap": 1.22,
+  "rsi": 73.4,
+  "adx": 30.5,
+  "atr": 0.02,
+  "bb_lower": 1.14,
+  "bb_upper": 1.27,
+  "current_volume": 476633.73,
+  "volume_sma_20": 553605.77,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 1.15,
+  "resistance_level": 1.28
+}

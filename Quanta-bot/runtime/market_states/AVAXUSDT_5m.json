@@ -1,0 +1,21 @@
+{
+  "symbol": "AVAXUSDT",
+  "timestamp": "2026-04-16T09:28:05.475988+00:00",
+  "price": 9.5,
+  "ema_20": 9.49,
+  "ema_50": 9.5,
+  "vwap": 9.48,
+  "rsi": 51.8,
+  "adx": 19.2,
+  "atr": 0.03,
+  "bb_lower": 9.44,
+  "bb_upper": 9.52,
+  "current_volume": 1613.84,
+  "volume_sma_20": 7167.42,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "NORMAL"
+  },
+  "support_level": 9.43,
+  "resistance_level": 9.62
+}

@@ -1,0 +1,21 @@
+{
+  "symbol": "ATOMUSDT",
+  "timestamp": "2026-04-16T07:49:31.311189+00:00",
+  "price": 1.804,
+  "ema_20": 1.79,
+  "ema_50": 1.78,
+  "vwap": 1.76,
+  "rsi": 66.8,
+  "adx": 35.5,
+  "atr": 0.01,
+  "bb_lower": 1.78,
+  "bb_upper": 1.81,
+  "current_volume": 8806.06,
+  "volume_sma_20": 12647.2,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "NORMAL"
+  },
+  "support_level": 1.76,
+  "resistance_level": 1.81
+}

@@ -1,0 +1,23 @@
+{
+  "symbol": "XAGUSDT",
+  "timestamp": "2026-04-17T12:59:47.888057+00:00",
+  "price": 81.56,
+  "ema_fast": 79.71,
+  "ema_slow": 79.3,
+  "ema_confirm": 79.1,
+  "ema_trend": 76.95,
+  "vwap": 77.18,
+  "rsi": 72.7,
+  "adx": 18.0,
+  "atr": 0.6,
+  "bb_lower": 77.6,
+  "bb_upper": 80.42,
+  "current_volume": 1883800.25,
+  "volume_sma_20": 462248.38,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 77.78,
+  "resistance_level": 81.67
+}

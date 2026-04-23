@@ -1,0 +1,23 @@
+{
+  "symbol": "LINKUSDT",
+  "timestamp": "2026-04-17T12:59:50.877041+00:00",
+  "price": 9.611,
+  "ema_fast": 9.47,
+  "ema_slow": 9.3,
+  "ema_confirm": 9.15,
+  "ema_trend": 8.99,
+  "vwap": 9.03,
+  "rsi": 65.1,
+  "adx": 32.8,
+  "atr": 0.18,
+  "bb_lower": 8.88,
+  "bb_upper": 9.7,
+  "current_volume": 1206334.36,
+  "volume_sma_20": 2446441.09,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 8.77,
+  "resistance_level": 9.68
+}

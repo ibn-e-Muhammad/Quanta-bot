@@ -1,0 +1,23 @@
+{
+  "symbol": "BTCUSDT",
+  "timestamp": "2026-04-17T12:59:26.364966+00:00",
+  "price": 76210.6,
+  "ema_fast": 73735.52,
+  "ema_slow": 71631.88,
+  "ema_confirm": 71476.98,
+  "ema_trend": 86948.98,
+  "vwap": 85021.12,
+  "rsi": 65.8,
+  "adx": 17.4,
+  "atr": 2483.37,
+  "bb_lower": 64333.17,
+  "bb_upper": 77053.0,
+  "current_volume": 91073.96,
+  "volume_sma_20": 147129.03,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 64918.2,
+  "resistance_level": 76350.0
+}

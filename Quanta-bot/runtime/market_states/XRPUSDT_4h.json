@@ -1,0 +1,23 @@
+{
+  "symbol": "XRPUSDT",
+  "timestamp": "2026-04-17T12:59:30.948316+00:00",
+  "price": 1.4589,
+  "ema_fast": 1.43,
+  "ema_slow": 1.4,
+  "ema_confirm": 1.38,
+  "ema_trend": 1.38,
+  "vwap": 1.39,
+  "rsi": 70.1,
+  "adx": 46.3,
+  "atr": 0.02,
+  "bb_lower": 1.33,
+  "bb_upper": 1.47,
+  "current_volume": 29469286.7,
+  "volume_sma_20": 98046108.48,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 1.33,
+  "resistance_level": 1.47
+}

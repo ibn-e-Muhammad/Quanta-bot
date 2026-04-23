@@ -1,0 +1,8 @@
+{
+  "weights": {
+    "confidence": 0.4,
+    "rr": 0.3,
+    "adx": 0.2,
+    "mtf_bonus": 0.1
+  }
+}

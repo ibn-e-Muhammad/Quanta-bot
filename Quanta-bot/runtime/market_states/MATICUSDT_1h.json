@@ -1,0 +1,21 @@
+{
+  "symbol": "MATICUSDT",
+  "timestamp": "2026-04-16T09:29:06.763192+00:00",
+  "price": 0.3794,
+  "ema_20": 0.38,
+  "ema_50": 0.38,
+  "vwap": 0.39,
+  "rsi": 52.1,
+  "adx": 23.7,
+  "atr": 0.0,
+  "bb_lower": 0.37,
+  "bb_upper": 0.39,
+  "current_volume": 810854.6,
+  "volume_sma_20": 2337640.81,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 0.37,
+  "resistance_level": 0.39
+}

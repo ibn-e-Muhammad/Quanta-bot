@@ -1,0 +1,60 @@
+{
+  "matrix": {
+    "watchlist": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT",
+      "XRPUSDT",
+      "ADAUSDT",
+      "DOGEUSDT",
+      "AVAXUSDT",
+      "LINKUSDT",
+      "DOTUSDT",
+      "MATICUSDT",
+      "NEARUSDT",
+      "FTMUSDT",
+      "ATOMUSDT",
+      "FILUSDT",
+      "RUNEUSDT",
+      "LTCUSDT",
+      "BCHUSDT",
+      "TRXUSDT",
+      "ETCUSDT",
+      "XLMUSDT",
+      "AAVEUSDT",
+      "UNIUSDT",
+      "SANDUSDT",
+      "AXSUSDT",
+      "MKRUSDT",
+      "COMPUSDT",
+      "EGLDUSDT",
+      "MANAUSDT",
+      "HBARUSDT",
+      "ALGOUSDT"
+    ],
+    "intervals": ["4h", "1d"]
+  },
+  "market_data": {
+    "timeframe": "15m",
+    "limit": 200,
+    "ema_fast": 9,
+    "ema_slow": 24,
+    "ema_confirm": 50,
+    "ema_trend": 200,
+    "rsi_period": 14,
+    "adx_period": 14,
+    "atr_period": 14,
+    "bb_window": 20
+  },
+  "strategy_thresholds": {
+    "adx_min": 20,
+    "rsi_oversold": 30,
+    "rsi_overbought": 70,
+    "min_rr_ratio": 3.0,
+    "ema_proximity_pct": 0.005,
+    "volume_trend_multiplier": 1.2,
+    "volume_breakout_multiplier": 2.0,
+    "breakout_buffer_pct": 0.001
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "symbol": "SOLUSDT",
+  "timestamp": "2026-04-17T12:59:31.874367+00:00",
+  "price": 88.84,
+  "ema_fast": 88.45,
+  "ema_slow": 88.24,
+  "ema_confirm": 88.19,
+  "ema_trend": 88.35,
+  "vwap": 88.41,
+  "rsi": 68.7,
+  "adx": 16.4,
+  "atr": 0.26,
+  "bb_lower": 87.7,
+  "bb_upper": 88.7,
+  "current_volume": 78864.08,
+  "volume_sma_20": 97446.86,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 87.57,
+  "resistance_level": 88.87
+}

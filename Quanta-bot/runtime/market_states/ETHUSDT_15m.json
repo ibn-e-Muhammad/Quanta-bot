@@ -1,0 +1,23 @@
+{
+  "symbol": "ETHUSDT",
+  "timestamp": "2026-04-17T12:59:27.353405+00:00",
+  "price": 2372.64,
+  "ema_fast": 2356.34,
+  "ema_slow": 2348.91,
+  "ema_confirm": 2343.35,
+  "ema_trend": 2341.98,
+  "vwap": 2338.73,
+  "rsi": 67.6,
+  "adx": 35.4,
+  "atr": 10.95,
+  "bb_lower": 2332.42,
+  "bb_upper": 2370.32,
+  "current_volume": 215280.64,
+  "volume_sma_20": 51300.07,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "NORMAL"
+  },
+  "support_level": 2328.84,
+  "resistance_level": 2381.52
+}

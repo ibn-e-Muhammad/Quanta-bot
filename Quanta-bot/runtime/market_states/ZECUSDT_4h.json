@@ -1,0 +1,23 @@
+{
+  "symbol": "ZECUSDT",
+  "timestamp": "2026-04-17T12:59:38.329360+00:00",
+  "price": 341.26,
+  "ema_fast": 339.74,
+  "ema_slow": 346.13,
+  "ema_confirm": 341.03,
+  "ema_trend": 271.25,
+  "vwap": 279.44,
+  "rsi": 46.3,
+  "adx": 17.3,
+  "atr": 11.69,
+  "bb_lower": 327.9,
+  "bb_upper": 366.2,
+  "current_volume": 65489.66,
+  "volume_sma_20": 180330.62,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 329.21,
+  "resistance_level": 386.17
+}

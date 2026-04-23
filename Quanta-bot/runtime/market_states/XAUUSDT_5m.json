@@ -1,0 +1,23 @@
+{
+  "symbol": "XAUUSDT",
+  "timestamp": "2026-04-17T12:59:44.442732+00:00",
+  "price": 4844.88,
+  "ema_fast": 4827.84,
+  "ema_slow": 4812.97,
+  "ema_confirm": 4803.93,
+  "ema_trend": 4793.86,
+  "vwap": 4800.98,
+  "rsi": 87.9,
+  "adx": 52.1,
+  "atr": 6.16,
+  "bb_lower": 4779.55,
+  "bb_upper": 4842.6,
+  "current_volume": 4534.98,
+  "volume_sma_20": 2911.85,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 4785.48,
+  "resistance_level": 4847.74
+}

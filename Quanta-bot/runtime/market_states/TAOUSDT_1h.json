@@ -1,0 +1,23 @@
+{
+  "symbol": "TAOUSDT",
+  "timestamp": "2026-04-17T12:59:40.399635+00:00",
+  "price": 253.4,
+  "ema_fast": 250.5,
+  "ema_slow": 247.99,
+  "ema_confirm": 246.93,
+  "ema_trend": 262.36,
+  "vwap": 266.79,
+  "rsi": 59.7,
+  "adx": 18.3,
+  "atr": 4.35,
+  "bb_lower": 239.08,
+  "bb_upper": 257.95,
+  "current_volume": 45159.34,
+  "volume_sma_20": 36245.24,
+  "state": {
+    "primary": "RANGING",
+    "volatility": "HIGH"
+  },
+  "support_level": 233.89,
+  "resistance_level": 257.72
+}

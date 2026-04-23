@@ -1,0 +1,23 @@
+{
+  "symbol": "XAUUSDT",
+  "timestamp": "2026-04-17T12:59:46.449511+00:00",
+  "price": 0.0,
+  "ema_fast": 0.0,
+  "ema_slow": 0.0,
+  "ema_confirm": 0.0,
+  "ema_trend": 0.0,
+  "vwap": 0.0,
+  "rsi": 50.0,
+  "adx": 0.0,
+  "atr": 0.0,
+  "bb_lower": 0.0,
+  "bb_upper": 0.0,
+  "current_volume": 0.0,
+  "volume_sma_20": 0.0,
+  "state": {
+    "primary": "SIDEWAYS",
+    "volatility": "LOW"
+  },
+  "support_level": 0.0,
+  "resistance_level": 0.0
+}

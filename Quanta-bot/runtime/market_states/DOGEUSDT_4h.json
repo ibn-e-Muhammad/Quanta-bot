@@ -1,0 +1,23 @@
+{
+  "symbol": "DOGEUSDT",
+  "timestamp": "2026-04-17T12:59:35.852044+00:00",
+  "price": 0.10016,
+  "ema_fast": 0.1,
+  "ema_slow": 0.1,
+  "ema_confirm": 0.09,
+  "ema_trend": 0.09,
+  "vwap": 0.09,
+  "rsi": 68.4,
+  "adx": 46.5,
+  "atr": 0.0,
+  "bb_lower": 0.09,
+  "bb_upper": 0.1,
+  "current_volume": 639179181.0,
+  "volume_sma_20": 1437418680.11,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "HIGH"
+  },
+  "support_level": 0.09,
+  "resistance_level": 0.1
+}

@@ -9,9 +9,11 @@
 *.pem
 
 # ---- Runtime Artifacts (SQLite DBs, JSON state, logs) ----
-Quanta-bot/runtime/
-runtime/
-
+# ---- Runtime Artifacts (SQLite DBs, JSON state, logs) ----
+runtime/*.sqlite
+runtime/*.sqlite-wal
+runtime/*.sqlite-shm
+runtime/*.log
 # ---- Python ----
 __pycache__/
 *.py[cod]

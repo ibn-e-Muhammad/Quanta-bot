@@ -1,0 +1,23 @@
+{
+  "symbol": "BNBUSDT",
+  "timestamp": "2026-04-17T12:59:54.304616+00:00",
+  "price": 636.28,
+  "ema_fast": 634.86,
+  "ema_slow": 633.64,
+  "ema_confirm": 632.55,
+  "ema_trend": 631.75,
+  "vwap": 631.77,
+  "rsi": 70.6,
+  "adx": 26.5,
+  "atr": 1.0,
+  "bb_lower": 631.58,
+  "bb_upper": 636.0,
+  "current_volume": 3163.01,
+  "volume_sma_20": 2431.75,
+  "state": {
+    "primary": "TRENDING_UP",
+    "volatility": "NORMAL"
+  },
+  "support_level": 630.53,
+  "resistance_level": 636.93
+}
